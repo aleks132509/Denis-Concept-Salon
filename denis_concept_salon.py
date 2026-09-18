@@ -143,12 +143,10 @@ st.sidebar.markdown("---")
 # LOGICA DE SUPRAPUNERE TIMP
 # ==========================================
 def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_id=None):
-    """Verifică dacă un interval se suprapune cu altă programare a aceluiași stilist"""
     try:
         t_start = datetime.strptime(ora_start_str, "%H:%M").time()
         start_dt = datetime.combine(datetime.strptime(data_str, "%Y-%m-%d"), t_start)
         end_dt = start_dt + timedelta(minutes=int(durata_min))
-        t_end = end_dt.time()
     except:
         return False, []
 
@@ -165,7 +163,6 @@ def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_id=None)
                 ex_s_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_start)
                 ex_e_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_end)
                 
-                # Suprapunere intervale
                 if start_dt < ex_e_dt and end_dt > ex_s_dt:
                     conflicts.append(row)
             except:
@@ -189,7 +186,6 @@ with tabs[0]:
     df_p = st.session_state.prog_df.copy()
     
     if is_admin:
-        # Filtre avansate admin
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
             view_mode = st.selectbox("Vizualizare Perioadă", ["Toate", "Săptămâna aceasta", "Luna aceasta", "Programări Viitoare", "Programări Trecute"])
@@ -199,7 +195,6 @@ with tabs[0]:
         with col_f3:
             fil_status = st.selectbox("Filtru Status", ["Toate", "Confirmat", "Efectuat", "Anulat"])
 
-        # Aplicare filtre
         today = date.today()
         if not df_p.empty:
             df_p["Dată_dt"] = pd.to_datetime(df_p["Dată"], errors="coerce")
@@ -209,7 +204,7 @@ with tabs[0]:
                 end_w = start_w + timedelta(days=6)
                 df_p = df_p[(df_p["Dată_dt"].dt.date >= start_w) & (df_p["Dată_dt"].dt.date <= end_w)]
             elif view_mode == "Luna aceasta":
-                df_p = df_p[(df_p["Dată_dt"].dt.year == today.year) & (df_p["Dat8_dt"] if "Dat8_dt" in df_p else df_p["Dată_dt"].dt.month == today.month)]
+                df_p = df_p[(df_p["Dată_dt"].dt.year == today.year) & (df_p["Dată_dt"].dt.month == today.month)]
             elif view_mode == "Programări Viitoare":
                 df_p = df_p[df_p["Dată_dt"].dt.date >= today]
             elif view_mode == "Programări Trecute":
@@ -223,7 +218,6 @@ with tabs[0]:
             if "Dată_dt" in df_p.columns:
                 df_p = df_p.drop(columns=["Dată_dt"])
 
-        # Metric cards sus
         if not df_p.empty:
             c1, c2, c3 = st.columns(3)
             with c1:
@@ -238,9 +232,7 @@ with tabs[0]:
         st.markdown("<br>", unsafe_allow_html=True)
 
         if not df_p.empty:
-            # Stilaj pentru rânduri cu suprapunere în tabel (evidențiate cu roșu)
             def highlight_overlaps(row):
-                # Verificăm dacă există suprapuneri reale în baza de date
                 has_ov, _ = check_overlap(row["Stilist"], row["Dată"], row["Ora Start"], row.get("Durată", 30), exclude_id=row.get("ID"))
                 if has_ov or row["Status"] == "Anulat":
                     return ['background-color: #451a03; color: #fca5a5'] * len(row)
@@ -248,7 +240,6 @@ with tabs[0]:
 
             st.dataframe(df_p.style.apply(highlight_overlaps, axis=1), use_container_width=True)
             
-            # Acțiuni rapide pe programări existente
             st.markdown("#### ⚙️ Gestionare Programare Existentă")
             sel_id = st.selectbox("Selectează ID Programare pentru modificare status", df_p["ID"].tolist() if "ID" in df_p.columns else [])
             col_act1, col_act2, col_act3 = st.columns(3)
@@ -274,7 +265,6 @@ with tabs[0]:
             st.info("Nu există programări care să corespundă filtrelor selectate.")
 
     else:
-        # Vizualizare Client
         client_name = current_user
         client_progs = df_p[df_p["Client"].str.contains(client_name, case=False, na=False)] if not df_p.empty else pd.DataFrame()
         
@@ -286,18 +276,17 @@ with tabs[0]:
             st.markdown("##### ❌ Anulare Programare Viitoare")
             viitoare = client_progs[client_progs["Dată"] >= str(date.today())]
             if not viitoare.empty:
-                id_anulat = st.selectbox("Alege programarea de anulat (ID sau Dată/Ora)", viitoare["ID"].tolist())
+                id_anulat = st.selectbox("Alege programarea de anulat", viitoare["ID"].tolist())
                 if st.button("Anulează această programare"):
                     st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_anulat, "Status"] = "Anulat"
                     save_all()
                     st.success("Programarea a fost anulată! Administratorul a fost notificat în sistem.")
-                    # Notificare simulată către Administrator
                     st.info(f"🔔 Notificare trimisă administratorului: Clientul {current_user} a anulat programarea {id_anulat}.")
                     trigger_rerun()
             else:
                 st.info("Nu ai programări viitoare active pe care să le poți anula.")
         else:
-            st.info("Nu ai nicio programări înregistrată momentan.")
+            st.info("Nu ai nicio programare înregistrată momentan.")
 
 # ==========================================
 # TAB 2: ADAUGĂ PROGRAMARE
@@ -312,7 +301,6 @@ with tabs[1]:
             st.markdown(f'<div class="success-alert">{st.session_state["msg_status"]["text"]}</div>', unsafe_allow_html=True)
         del st.session_state["msg_status"]
 
-    # Autocompletare client bazată pe baza de date anterioară
     existent_clients = st.session_state.prog_df[["Client", "Telefon"]].drop_duplicates().to_dict(orient="records") if not st.session_state.prog_df.empty else []
 
     col_in1, col_in2 = st.columns(2)
@@ -320,7 +308,6 @@ with tabs[1]:
         client_nume = st.text_input("👤 Nume Client", value=current_user if not is_admin else "")
         client_tel = st.text_input("📞 Telefon Client", value="")
         
-        # Dacă clientul a mai fost introdus anterior, completăm telefonul automat
         matched_c = [c for c in existent_clients if c["Client"].lower() == client_nume.lower()]
         if matched_c and not client_tel:
             client_tel = str(matched_c[0].get("Telefon", ""))
@@ -332,7 +319,6 @@ with tabs[1]:
         serv_opt = st.session_state.serv_df["Serviciu"].tolist() if not st.session_state.serv_df.empty else ["Tuns"]
         p_serviciu = st.selectbox("✂️ Serviciu Dorit", serv_opt)
         
-        # Preluare automată durată și preț în funcție de serviciu
         s_row = st.session_state.serv_df[st.session_state.serv_df["Serviciu"] == p_serviciu]
         p_pret = int(s_row["Preț"].values[0]) if not s_row.empty else 50
         p_durata = int(s_row["Durată (min)"].values[0]) if not s_row.empty else 30
@@ -343,7 +329,6 @@ with tabs[1]:
         p_stilist = st.selectbox("💈 Stilist / Frizer", stilisti_list if stilisti_list else ["Alex"])
         p_obs = st.text_area("📝 Observații / Preferințe client")
 
-    # Calcul oră sfârșit
     try:
         t_start_obj = datetime.strptime(p_ora, "%H:%M")
         t_end_obj = t_start_obj + timedelta(minutes=p_durata)
@@ -353,13 +338,11 @@ with tabs[1]:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Verificare suprapunere în timp real la afișare formular
     data_str = p_data.strftime("%Y-%m-%d")
     has_ov, conflicts = check_overlap(p_stilist, data_str, p_ora, p_durata)
     if has_ov:
         st.markdown(f'<div class="overlap-alert">⚠️ ATENȚIE: Intervalul selectat ({p_ora} - {ora_sfarsit}) se suprapune cu o altă programare existentă pentru stilistul {p_stilist}!</div>', unsafe_allow_html=True)
 
-    # Istoric client selectat
     if client_nume:
         c_history = st.session_state.prog_df[st.session_state.prog_df["Client"].str.contains(client_nume, case=False, na=False)] if not st.session_state.prog_df.empty else pd.DataFrame()
         if not c_history.empty:
@@ -393,7 +376,7 @@ with tabs[1]:
         
         msg = "✅ Programarea a fost salvată cu succes!"
         if has_ov:
-            msg += " (Notă: A fost înregistrată în despite suprapunerii detectate)."
+            msg += " (Notă: A fost înregistrată în ciuda suprapunerii detectate)."
         
         st.session_state["msg_status"] = {"type": "success", "text": msg}
         trigger_rerun()
@@ -426,7 +409,7 @@ with tabs[2]:
                         st.success("Serviciu adăugat!")
                         trigger_rerun()
         with col_s2:
-            st.markdown("#### 🗑️ Șterge sau Editează Serviciu")
+            st.markdown("#### 🗑️ Șterge Serviciu")
             del_serv = st.selectbox("Selectează serviciul de șters", df_serv["Serviciu"].tolist() if not df_serv.empty else [])
             if st.button("Șterge Serviciul Selectat", type="primary"):
                 st.session_state.serv_df = st.session_state.serv_df[st.session_state.serv_df["Serviciu"] != del_serv]
@@ -449,7 +432,7 @@ if is_admin:
             col_r1, col_r2 = st.columns(2)
             with col_r1:
                 luni_disponibile = ["Toate"] + sorted(df_f["Lună"].dropna().unique().tolist())
-                sel_ luna = st.selectbox("Filtrează Lunar", luni_disponibile)
+                sel_luna = st.selectbox("Filtrează Lunar", luni_disponibile)
             with col_r2:
                 stilisti_raport = ["Toți"] + df_f["Stilist"].dropna().unique().tolist()
                 sel_stilist_r = st.selectbox("Filtrează după Stilist Raport", stilisti_raport)
@@ -470,7 +453,6 @@ if is_admin:
 
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Grafic Plotly profesional
             if not df_f.empty:
                 fig = px.bar(
                     df_f, x="Dată", y="Preț", color="Stilist", barmode="group",
@@ -505,7 +487,6 @@ if is_admin:
                 
                 if st.form_submit_button("Salvează Utilizator"):
                     if n_user and n_pass:
-                        # Verificăm dacă există deja
                         users = st.session_state.users_df
                         if n_user in users["Utilizator"].values:
                             st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == n_user, ["Parolă", "Rol", "Telefon"]] = [n_pass, n_rol, n_tel]
