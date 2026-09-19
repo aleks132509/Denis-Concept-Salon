@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 
 # ==========================================
-# CONFIGURARE PAGINĂ & DESIGN SALON DE LUX
+# CONFIGURARE PAGINĂ & DESIGN SALON DE LUX (AURIU & ANTRACIT)
 # ==========================================
 st.set_page_config(
     page_title="Denis Concept Salon | Luxury Experience",
@@ -18,15 +18,16 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Fundal spectaculos (Salon & Coafat femei/bărbați) la login vs blurry în interior
+# Fundal spectaculos cu auriu și antracit la login vs blurry în interior
 def apply_background_style(is_logged_in):
     if not is_logged_in:
         st.markdown(
             """
             <style>
             .stApp {
-                background: linear-gradient(rgba(5, 7, 10, 0.3), rgba(10, 14, 22, 0.45)), 
-                            url('https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1920&q=80') !important;
+                background: linear-gradient(135deg, rgba(15, 17, 23, 0.94) 0%, rgba(26, 31, 44, 0.96) 50%, rgba(10, 12, 16, 0.98) 100%),
+                            radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.18) 0%, transparent 60%),
+                            url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1920&q=80') !important;
                 background-size: cover !important;
                 background-position: center !important;
                 background-attachment: fixed !important;
@@ -42,7 +43,7 @@ def apply_background_style(is_logged_in):
             """
             <style>
             .stApp {
-                background: linear-gradient(rgba(9, 11, 16, 0.92), rgba(15, 19, 28, 0.95)), 
+                background: linear-gradient(135deg, rgba(13, 17, 23, 0.95) 0%, rgba(22, 27, 39, 0.97) 100%),
                             url('https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1920&q=80') !important;
                 background-size: cover !important;
                 background-position: center !important;
@@ -301,7 +302,6 @@ def remove_diacritics(text):
         without_diacritics = without_diacritics.replace(k, v)
     return without_diacritics
 
-# Asigurare livrare 100% cu sistem de retry și curățare riguroasă a numărului (elimină complet bugul „This is a test”)
 def send_free_automatic_whatsapp(phone, message, apikey):
     target_apikey = str(apikey).strip() if apikey and pd.notna(apikey) and str(apikey).strip() != "" and str(apikey).strip() != "nan" else MASTER_WHATSAPP_APIKEY
     target_phone = str(phone).strip() if phone and pd.notna(phone) and str(phone).strip() != "" else MASTER_WHATSAPP_PHONE
@@ -327,7 +327,6 @@ def send_free_automatic_whatsapp(phone, message, apikey):
         time.sleep(1)
     return False
 
-# Formatare dată în limba română (ex: Luni, 21 Octombrie 2026)
 RO_DAYS = {0: "Luni", 1: "Marți", 2: "Miercuri", 3: "Joi", 4: "Vineri", 5: "Sâmbătă", 6: "Duminică"}
 RO_MONTHS = {1: "Ianuarie", 2: "Februarie", 3: "Martie", 4: "Aprilie", 5: "Mai", 6: "Iunie", 7: "Iulie", 8: "August", 9: "Septembrie", 10: "Octombrie", 11: "Noiembrie", 12: "Decembrie"}
 
@@ -347,7 +346,6 @@ def format_ro_date(d_input):
     except:
         return str(d_input)
 
-# Motor de randare tabele stilizate de lux
 def render_lux_table(df):
     if df.empty:
         return "<div style='text-align: center; padding: 25px; color: #9ca3af; background: #131722; border-radius: 12px; border: 1px solid rgba(212, 175, 55, 0.2);'>Nu există înregistrări de afișat momentan.</div>"
@@ -652,7 +650,6 @@ with tabs[0]:
                 p_data = st.date_input("📅 Dată Programare", value=date.today(), min_value=date.today())
 
             with col_in2:
-                # Sub data programare să fie serviciul și apoi stilistul
                 p_stilist = st.selectbox("💈 Stilist / Barber", stilisti_disponibili, index=default_stylist_idx)
 
                 df_serv_all = st.session_state.serv_df
@@ -905,7 +902,6 @@ with tabs[1]:
         with col_f1:
             view_mode = st.selectbox("Vizualizare Perioadă", ["Toate", "Azi", "Mâine", "Săptămâna aceasta", "Săptămâna viitoare", "Luna aceasta", "Programări Viitoare", "Programări Trecute"])
         with col_f2:
-            # Folosim st.multiselect standard (care are direct săgeată de drop-down și se deschide la un click)
             fil_stilist = st.multiselect("Alege Stilist", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili)
         with col_f3:
             fil_status = st.multiselect("Alege Status Programare", options=["Confirmat", "În Așteptare"], default=["Confirmat", "În Așteptare"])
