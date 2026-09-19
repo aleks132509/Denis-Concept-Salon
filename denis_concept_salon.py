@@ -235,7 +235,6 @@ def get_whatsapp_link(phone, text):
     encoded_text = urllib.parse.quote(text)
     return f"https://wa.me/{clean_phone}?text={encoded_text}"
 
-# Funcție pentru trimiterea AUTOMATĂ GRATUITĂ prin CallMeBot în fundal
 def send_free_automatic_whatsapp(phone, message, apikey):
     try:
         if not apikey or pd.isna(apikey) or str(apikey).strip() == "":
@@ -255,16 +254,20 @@ def send_free_automatic_whatsapp(phone, message, apikey):
         print("Erore trimitere WhatsApp automat:", e)
         return False
 
-def highlight_appointment_status(row):
-    status = str(row.get("Status", ""))
-    mod_status = str(row.get("Status Modificare", ""))
-    if status == "Anulat" or mod_status == "Respins":
-        return ['background-color: rgba(127, 29, 29, 0.4); color: #fca5a5'] * len(row)
-    elif status == "Efectuat" or mod_status == "Aprobat":
-        return ['background-color: rgba(6, 78, 59, 0.4); color: #6ee7b7'] * len(row)
-    elif status == "Confirmat" or mod_status == "În Așteptare":
-        return ['background-color: rgba(180, 83, 9, 0.4); color: #fde68a'] * len(row)
-    return [''] * len(row)
+# Funcție pentru stilizarea DOAR a celulelor de status cu nuanțe rafinate
+def highlight_status_cells(row):
+    styles = []
+    for val in row:
+        v_str = str(val)
+        if v_str in ["Anulat", "Respins"]:
+            styles.append('background-color: rgba(127, 29, 29, 0.4); color: #fca5a5; font-weight: bold;')
+        elif v_str in ["Efectuat", "Aprobat"]:
+            styles.append('background-color: rgba(6, 78, 59, 0.4); color: #6ee7b7; font-weight: bold;')
+        elif v_str in ["Confirmat", "În Așteptare"]:
+            styles.append('background-color: rgba(120, 80, 20, 0.4); color: #fef08a; font-weight: bold;')
+        else:
+            styles.append('')
+    return styles
 
 def render_marquee_banner():
     rev_aprobate_banner = st.session_state.rev_df[st.session_state.rev_df["Status"] == "Aprobat"] if not st.session_state.rev_df.empty else pd.DataFrame()
@@ -468,7 +471,14 @@ with tabs[0]:
         st.markdown("<br>", unsafe_allow_html=True)
 
         if not df_p.empty:
-            st.dataframe(df_p.style.apply(highlight_appointment_status, axis=1), use_container_width=True)
+            df_display_admin = df_p.drop(columns=["ID"], errors="ignore")
+            status_cols_admin = [c for c in ["Status", "Status Modificare"] if c in df_display_admin.columns]
+            
+            if status_cols_admin:
+                styled_admin_df = df_display_admin.style.apply(highlight_status_cells, subset=status_cols_admin, axis=1)
+                st.dataframe(styled_admin_df, use_container_width=True)
+            else:
+                st.dataframe(df_display_admin, use_container_width=True)
             
             st.markdown("##### 📱 Acțiuni Rapide WhatsApp pentru Programări")
             selected_prog_wa_id = st.selectbox("Alege programarea pentru a contacta clientul", df_p["ID"].tolist(), format_func=lambda x: f"ID {x} - {df_p[df_p['ID']==x].iloc[0]['Client']} ({df_p[df_p['ID']==x].iloc[0]['Dată']} {df_p[df_p['ID']==x].iloc[0]['Ora Start']})")
@@ -497,15 +507,22 @@ with tabs[0]:
 
         if "cancel_success_alert" in st.session_state:
             st.markdown(f"""
-            <div class="overlap-alert">
-                🛑 <b>ANULARE TRIMISĂ!</b> Programarea a fost anulată cu succes, iar înștiințarea automată a fost trimisă stilistului pe WhatsApp.
+            <div class="success-alert">
+                ✅ <b>ANULARE TRIMISĂ!</b> Programarea a fost anulată cu succes, iar înștiințarea a fost trimisă automat stilistului.
             </div>
             """, unsafe_allow_html=True)
             del st.session_state["cancel_success_alert"]
 
         st.markdown(f"#### Bun venit, {current_user}! Istoricul programărilor tale:")
         if not client_progs.empty:
-            st.dataframe(client_progs[["ID", "Dată", "Ora Start", "Ora Sfârșit", "Serviciu", "Stilist", "Preț", "Durată", "Status", "Status Modificare"]].style.apply(highlight_appointment_status, axis=1), use_container_width=True)
+            df_client_display = client_progs.drop(columns=["ID"], errors="ignore")[["Dată", "Ora Start", "Ora Sfârșit", "Serviciu", "Stilist", "Preț", "Durată", "Status", "Status Modificare"]]
+            status_cols_client = [c for c in ["Status", "Status Modificare"] if c in df_client_display.columns]
+            
+            if status_cols_client:
+                styled_client_df = df_client_display.style.apply(highlight_status_cells, subset=status_cols_client, axis=1)
+                st.dataframe(styled_client_df, use_container_width=True)
+            else:
+                st.dataframe(df_client_display, use_container_width=True)
             
             st.markdown("---")
             st.markdown("##### ❌ Anulare / ✏️ Modificare Programare")
@@ -535,7 +552,6 @@ with tabs[0]:
                             st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Status"] = "Anulat"
                             save_all()
                             
-                            # Trimite AUTOMAT mesajul pe WhatsApp către stilist în fundal (GRATUIT via CallMeBot)
                             stylist_user_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == stilist_alocat]
                             if not stylist_user_row.empty:
                                 st_phone = stylist_user_row.iloc[0]["Telefon"]
@@ -959,18 +975,27 @@ if is_admin:
                     trigger_rerun()
 
     with tabs[3]:
-        st.markdown("### ⭐ Moderare Recenzii")
+        st.markdown("### ⭐ Moderare Recenzii (În Așteptare)")
         rev_df = st.session_state.rev_df.copy()
-        if not rev_df.empty:
+        pending_revs = rev_df[rev_df["Status"] == "În așteptare"] if not rev_df.empty else pd.DataFrame()
+        
+        if not pending_revs.empty:
             rev_options = {}
-            for _, r in rev_df.iterrows():
+            for _, r in pending_revs.iterrows():
                 label = f"Client: {r['Client']} | Stilist: {r['Stilist']} | Rating: {r['Rating']}⭐ | Comentariu: {str(r['Comentariu'])[:35]}..."
                 rev_options[label] = int(r['ID']) if pd.notna(r['ID']) else 0
 
-            sel_rev_label = st.selectbox("Selectează Recenzia", list(rev_options.keys()))
+            sel_rev_label = st.selectbox("Selectează Recenzia din Așteptare pentru Aprobare", list(rev_options.keys()))
             sel_rev_id = rev_options[sel_rev_label]
             
-            st.dataframe(rev_df[rev_df["ID"] == sel_rev_id], use_container_width=True)
+            rev_display = rev_df[rev_df["ID"] == sel_rev_id].drop(columns=["ID"], errors="ignore")
+            status_cols_rev = [c for c in ["Status"] if c in rev_display.columns]
+            
+            if status_cols_rev:
+                st.dataframe(rev_display.style.apply(highlight_status_cells, subset=status_cols_rev, axis=1), use_container_width=True)
+            else:
+                st.dataframe(rev_display, use_container_width=True)
+            
             col_m1, col_m2 = st.columns(2)
             with col_m1:
                 if st.button("✅ Aprobă Publicarea Recenziei"):
@@ -985,7 +1010,7 @@ if is_admin:
                     st.error("Recenzia a fost ștersă.")
                     trigger_rerun()
         else:
-            st.info("Nu există recenzii înregistrate.")
+            st.info("Nu există nicio recenzie în așteptarea moderării.")
 
     with tabs[4]:
         st.markdown("### 📊 Raport Financiar & Total Plată în Funcție de Servicii Efectuate")
@@ -1106,19 +1131,14 @@ else:
             st.info("Nu există recenzii aprobate momentan.")
 
         st.markdown("---")
-        st.markdown("#### 📜 Istoricul Recenziilor Tale")
+        st.markdown("#### 📜 Recenziile Tale Trimise")
         my_reviews = st.session_state.rev_df[st.session_state.rev_df["Client"] == current_user] if not st.session_state.rev_df.empty else pd.DataFrame()
         
         if not my_reviews.empty:
             for _, rev_row in my_reviews.iterrows():
                 with st.container(border=True):
-                    st.markdown(f"**Stilist:** {rev_row['Stilist']} | **Rating:** {'⭐' * int(float(rev_row['Rating']) if pd.notna(rev_row['Rating']) else 5)} | **Status:** {rev_row['Status']}")
+                    st.markdown(f"**Stilist:** {rev_row['Stilist']} | **Rating:** {'⭐' * int(float(rev_row['Rating']) if pd.notna(rev_row['Rating']) else 5)}")
                     st.markdown(f"Comentariu: *{rev_row['Comentariu']}*")
-                    if st.button("🗑️ Șterge Această Recenzie", key=f"del_my_rev_{rev_row['ID']}"):
-                        st.session_state.rev_df = st.session_state.rev_df[st.session_state.rev_df["ID"] != int(rev_row['ID'])]
-                        save_all()
-                        st.success("Recenzia ta a fost ștersă.")
-                        trigger_rerun()
         else:
             st.info("Nu ai adăugat nicio recenzie până acum.")
 
@@ -1141,5 +1161,5 @@ else:
                     }])
                     st.session_state.rev_df = pd.concat([st.session_state.rev_df, new_r], ignore_index=True)
                     save_all()
-                    st.markdown('<div class="success-alert">✅ Recenzia trimisa cu succes! Îți mulțumim pentru feedback.</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="success-alert">✅ Recenzia a fost trimisă cu succes! Îți mulțumim pentru feedback.</div>', unsafe_allow_html=True)
                     trigger_rerun()
