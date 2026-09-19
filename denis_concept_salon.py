@@ -83,7 +83,6 @@ if user_role == "Client":
     st.header("Programările Mele Curente")
     st.info("Aici puteți vizualiza detaliile programării dumneavoastră.")
     
-    # Afișăm doar Data, Ora, Serviciul și Stilistul (fără id, nr, null-uri)
     client_view_data = []
     for app in st.session_state.appointments:
         client_view_data.append({
@@ -100,7 +99,7 @@ if user_role == "Client":
 # ------------------------------------------
 else:
     current_admin_stylist = "Denis" if "Denis" in user_role else "Maria"
-    st.subheader(log_info := f"Bun venit, {current_admin_stylist}!")
+    st.subheader(f"Bun venit, {current_admin_stylist}!")
 
     tab1, tab2, tab3, tab4 = st.tabs(["Programări & Filtre", "Gestiune & Catalog", "Recenzii", "Test WhatsApp"])
 
@@ -111,11 +110,9 @@ else:
         all_stylists = list(set([a["stilist"] for a in st.session_state.appointments]))
         all_statuses = list(set([a["status"] for a in st.session_state.appointments]))
         
-        # Filtre redenumite și multi-select
         selected_stylists = st.multiselect("Alege Stilist", options=all_stylists, default=[current_admin_stylist])
         selected_statuses = st.multiselect("Alege Status Programare", options=all_statuses, default=all_statuses)
         
-        # Filtrare date
         filtered_apps = [
             app for app in st.session_state.appointments 
             if app["stilist"] in selected_stylists and app["status"] in selected_statuses
@@ -124,16 +121,13 @@ else:
         st.dataframe(pd.DataFrame(filtered_apps))
         
         if st.button("Salvează Modificări Programări"):
-            # Notificare de succes vizibilă imediat pe ecran (sus)
             st.success("Modificarea sau salvarea s-a efectuat cu succes!")
-            # Trimitere opțională WhatsApp de test la salvare
             send_whatsapp_notification(WHATSAPP_PHONE, "Modificarea programarii a fost salvata cu succes!", WHATSAPP_APIKEY)
 
     # --- TAB 2: Gestiune & Catalog (Default utilizator curent + Opțiune alții) ---
     with tab2:
         st.markdown("### Catalog Servicii")
         
-        # Opțiune de a adăuga/vedea și pe alții pe lângă cel curent
         available_catalog_stylists = list(set([c["stilist"] for c in st.session_state.catalog]))
         view_catalog_stylists = st.multiselect(
             "Alege Stilist / Admin pentru Catalog", 
@@ -169,7 +163,7 @@ else:
     # --- TAB 4: Test Trimis Mesaj WhatsApp ---
     with tab4:
         st.markdown("### Verificare Conexiune WhatsApp API")
-        st.write(Folosit pentru testarea trimiterii automate către telefonul `+35796005530`.)
+        st.write("Folosit pentru testarea trimiterii automate către telefonul +35796005530.")
         
         test_message = st.text_input("Mesaj de trimis", "Salvarea s-a efectuat cu succes!")
         if st.button("Trimite Mesaj WhatsApp acum"):
