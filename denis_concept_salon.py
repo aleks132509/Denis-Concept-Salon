@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 
 # ==========================================
-# CONFIGURARE FIȘIER CONFIG.TOML STREAMLIT (ELIMINARE DEFINITIVĂ ROȘU MULTISELECT)
+# CONFIGURARE FIȘIER CONFIG.TOML STREAMLIT
 # ==========================================
 os.makedirs(".streamlit", exist_ok=True)
 config_toml_content = """
@@ -35,13 +35,10 @@ st.set_page_config(
 
 def apply_background_style(is_logged_in):
     salon_bg_url = "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1920&q=80"
-    
-    # Valoare de blur mai mare și accentuată după logare
     blur_val = "16px" if is_logged_in else "4px"
     
     css_template = """
     <style>
-    /* Fundal cu efect real de blur folosind un strat pseudo-element dedicat */
     .stApp::before {
         content: "";
         position: fixed;
@@ -56,38 +53,6 @@ def apply_background_style(is_logged_in):
         background: linear-gradient(135deg, rgba(15, 17, 23, 0.85) 0%, rgba(22, 26, 34, 0.92) 100%) !important;
         color: #f3f4f6 !important;
         font-family: 'Helvetica Neue', sans-serif;
-    }
-
-    /* STILIZARE RIGUROASĂ AURIU-LUX PENTRU TOATE TAG-URILE DIN ST.MULTISELECT */
-    div[data-baseweb="tag"], 
-    span[data-baseweb="tag"], 
-    .stMultiSelect div[data-baseweb="tag"], 
-    .stMultiSelect span[data-baseweb="tag"],
-    [data-testid="stMultiSelect"] div[data-baseweb="tag"],
-    [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
-        background: linear-gradient(135deg, #e5c158 0%, #c5a059 100%) !important;
-        background-color: #e5c158 !important;
-        color: #090a0f !important;
-        border-radius: 6px !important;
-        font-weight: 700 !important;
-        border: 1px solid #d4af37 !important;
-        box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3) !important;
-    }
-    div[data-baseweb="tag"] span, 
-    span[data-baseweb="tag"] span, 
-    .stMultiSelect [data-baseweb="tag"] span,
-    [data-testid="stMultiSelect"] [data-baseweb="tag"] span {
-        color: #090a0f !important;
-    }
-    div[data-baseweb="tag"] svg, 
-    span[data-baseweb="tag"] svg, 
-    .stMultiSelect [data-baseweb="tag"] svg,
-    [data-testid="stMultiSelect"] [data-baseweb="tag"] svg {
-        fill: #090a0f !important;
-    }
-    div[data-baseweb="tag"] svg:hover, 
-    span[data-baseweb="tag"] svg:hover {
-        opacity: 0.7;
     }
     </style>
     """
@@ -958,15 +923,26 @@ with tabs[1]:
         st.markdown(f"### 📅 Programările mele — {current_user}")
         df_p = st.session_state.prog_df.copy()
         
-        col_f1, col_f2, col_f3 = st.columns(3)
+        col_f1, col_f2 = st.columns(2)
         with col_f1:
             view_mode = st.selectbox("Vizualizare Perioadă", ["Toate", "Azi", "Mâine", "Săptămâna aceasta", "Săptămâna viitoare", "Luna aceasta", "Programări Viitoare", "Programări Trecute"])
         with col_f2:
-            # MULTISELECT STILIZAT AURIU
-            fil_stilist = st.multiselect("Alege Stilist", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, key="admin_fil_stilist_ms")
-        with col_f3:
-            # MULTISELECT STILIZAT AURIU
-            fil_status = st.multiselect("Alege Status Programare", options=["Confirmat", "În Așteptare"], default=["Confirmat", "În Așteptare"], key="admin_fil_status_ms")
+            # FOLOSIRE ST.PILLS CU SELECTION MODE MULTI (CHENARE SELECTABILE/DESELECTABILE FĂRĂ X)
+            fil_stilist = st.pills(
+                "Alege Stilist (Click pe chenar pentru selecție/deselectare)", 
+                options=stilisti_disponibili, 
+                default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, 
+                selection_mode="multi",
+                key="admin_fil_stilist_pills"
+            )
+
+        fil_status = st.pills(
+            "Alege Status Programare", 
+            options=["Confirmat", "În Așteptare"], 
+            default=["Confirmat", "În Așteptare"], 
+            selection_mode="multi",
+            key="admin_fil_status_pills"
+        )
 
         today = date.today()
         if not df_p.empty:
@@ -996,8 +972,13 @@ with tabs[1]:
 
             if fil_stilist:
                 df_p = df_p[df_p["Stilist"].isin(fil_stilist)]
+            else:
+                df_p = df_p.iloc[0:0]
+                
             if fil_status:
                 df_p = df_p[df_p["Status"].isin(fil_status)]
+            else:
+                df_p = df_p.iloc[0:0]
             
             if "Dată_dt" in df_p.columns:
                 df_p = df_p.drop(columns=["Dată_dt"])
@@ -1342,13 +1323,18 @@ if is_admin_or_stylist:
         st.markdown("### 💇‍♂️ Gestiune & Catalog Servicii în funcție de Stilist")
         df_serv = st.session_state.serv_df.copy()
         
-        # MULTISELECT STILIZAT AURIU
-        sel_serv_filter = st.multiselect("Alege Stilist pentru Catalog", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, key="serv_stilist_multiselect")
+        sel_serv_filter = st.pills(
+            "Alege Stilist pentru Catalog", 
+            options=stilisti_disponibili, 
+            default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, 
+            selection_mode="multi",
+            key="serv_stilist_pills"
+        )
         
         if sel_serv_filter:
             df_serv_filtered = df_serv[df_serv["Stilist"].isin(sel_serv_filter)]
         else:
-            df_serv_filtered = df_serv
+            df_serv_filtered = df_serv.iloc[0:0]
 
         st.markdown(render_lux_table(df_serv_filtered), unsafe_allow_html=True)
 
@@ -1407,13 +1393,18 @@ if is_admin_or_stylist:
         st.markdown("### ⭐ Moderare Recenzii & Istoric Complet")
         rev_df = st.session_state.rev_df.copy()
         
-        # MULTISELECT STILIZAT AURIU
-        sel_rev_stilist = st.multiselect("Alege Stilist pentru Recenzii", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, key="rev_stilist_multiselect")
+        sel_rev_stilist = st.pills(
+            "Alege Stilist pentru Recenzii", 
+            options=stilisti_disponibili, 
+            default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, 
+            selection_mode="multi",
+            key="rev_stilist_pills"
+        )
         
         if sel_rev_stilist:
             rev_df_filtered = rev_df[rev_df["Stilist"].isin(sel_rev_stilist)]
         else:
-            rev_df_filtered = rev_df
+            rev_df_filtered = rev_df.iloc[0:0]
 
         st.markdown("#### 🔔 Recenzii în Așteptare pentru Moderare")
         pending_revs = rev_df_filtered[rev_df_filtered["Status"] == "În așteptare"] if not rev_df_filtered.empty else pd.DataFrame()
