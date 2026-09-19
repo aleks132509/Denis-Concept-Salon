@@ -15,7 +15,7 @@ st.set_page_config(
     page_title="Denis Concept Salon | Luxury Experience",
     layout="wide",
     page_icon="✂️",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded", # Menține meniul lateral deschis și fix din start
 )
 
 def apply_background_style(is_logged_in):
@@ -311,6 +311,7 @@ def remove_diacritics(text):
         without_diacritics = without_diacritics.replace(k, v)
     return without_diacritics
 
+# Trimitere corectă WhatsApp cu parametrii CallMeBot (source=php) pentru a evita mesajul „This is a test”
 def send_free_automatic_whatsapp(phone, message, apikey):
     target_apikey = str(apikey).strip() if apikey and pd.notna(apikey) and str(apikey).strip() != "" and str(apikey).strip() != "nan" else MASTER_WHATSAPP_APIKEY
     target_phone = str(phone).strip() if phone and pd.notna(phone) and str(phone).strip() != "" else MASTER_WHATSAPP_PHONE
@@ -323,7 +324,8 @@ def send_free_automatic_whatsapp(phone, message, apikey):
         
     clean_msg = remove_diacritics(message)
     encoded_text = urllib.parse.quote(clean_msg)
-    url = f"https://api.callmebot.com/whatsapp.php?phone={clean_phone}&text={encoded_text}&apikey={target_apikey}"
+    # Adăugat source=php conform documentației oficiale CallMeBot pentru a trimite textul personalizat
+    url = f"https://api.callmebot.com/whatsapp.php?source=php&phone={clean_phone}&text={encoded_text}&apikey={target_apikey}"
     
     for attempt in range(1, 4):
         try:
@@ -336,7 +338,6 @@ def send_free_automatic_whatsapp(phone, message, apikey):
         time.sleep(1)
     return False
 
-# Funcție de verificare suprapunere definită înaintea apelului său
 def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_nr=None):
     try:
         t_start = datetime.strptime(ora_start_str, "%H:%M").time()
@@ -537,7 +538,7 @@ def approval_popup(req_r):
             st.rerun()
 
 # ==========================================
-# NOTIFICARE SUS IMEDIAT DUPĂ LOGARE & MENIU CURAT DE GESTIONARE
+# NOTIFICARE SUS IMEDIAT DUPĂ LOGARE
 # ==========================================
 if is_admin_or_stylist:
     df_prog_all = st.session_state.prog_df
@@ -549,31 +550,29 @@ if is_admin_or_stylist:
         </div>
         """, unsafe_allow_html=True)
         
-        # Selector curat pentru cereri în așteptare fără text lung pe butoane
         pending_options = {f"Client: {row['Client']} ({format_ro_date(row['Noua Dată'])} - {row['Noua Ora']})": row for _, row in pending_modifs.iterrows()}
         selected_pending_label = st.selectbox("Selectează cererea pentru gestionare rapidă", list(pending_options.keys()), key="top_pending_selectbox")
         if selected_pending_label:
             selected_req_data = pending_options[selected_pending_label]
-            col_b_app1, col_b_app2 = st.columns(2)
+            col_b_app1, _ = st.columns(2)
             with col_b_app1:
                 if st.button("🔍 Deschide Fereastra de Aprobare", use_container_width=True):
                     approval_popup(selected_req_data)
-            with col_b_app2:
-                pass
 
 # ==========================================
-# MENIU LATERAL (SIDEBAR NAVIGATION - 3 LINII)
+# MENIU LATERAL FIX & BUTON HOME PERMANENT VIZIBIL
 # ==========================================
 st.sidebar.markdown(f"### ✂️ **{current_user}**")
 st.sidebar.markdown(f"Rol: <span class='role-tag'>{st.session_state.role}</span>", unsafe_allow_html=True)
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
-# Buton Home / Acasă în meniul lateral
-if st.sidebar.button("🏠 Acasă / Home", use_container_width=True):
-    st.session_state.nav_page = "Home"
+# Buton Home fix și vizibil în partea de sus a meniului lateral
+if st.sidebar.button("🏠 ACASĂ / HOME", use_container_width=True):
+    st.session_state.selected_nav = "🏠 Acasă / Dashboard"
+    trigger_rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("##### 📂 Meniu Navigare")
+st.sidebar.markdown("##### ☰ Meniu Principal Salon")
 
 if is_admin:
     nav_options = [
@@ -604,7 +603,11 @@ else:
         "⭐ Recenzii Salon & Istoricul Meu"
     ]
 
-selected_page = st.sidebar.radio("Navigare", nav_options, label_visibility="collapsed")
+if "selected_nav" not in st.session_state:
+    st.session_state.selected_nav = nav_options[0]
+
+selected_page = st.sidebar.radio("Navigare Meniu", nav_options, index=nav_options.index(st.session_state.selected_nav) if st.session_state.selected_nav in nav_options else 0, label_visibility="collapsed")
+st.session_state.selected_nav = selected_page
 
 if not is_admin_or_stylist:
     st.sidebar.markdown("---")
@@ -648,12 +651,11 @@ if is_admin_or_stylist and current_user in stilisti_disponibili:
 # ==========================================
 # RUTARE PAGINI ÎN FUNCȚIE DE MENIUL LATERAL
 # ==========================================
-
 is_home_view = selected_page == "🏠 Acasă / Dashboard"
 
 if is_home_view:
     st.markdown(f"### ✨ Bun venit la Denis Concept Salon, **{current_user}**!")
-    st.markdown("<p style='color: #9ca3af;'>Folosește meniul lateral (cele 3 linii din stânga sus) pentru a naviga rapid prin secțiunile aplicației.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #9ca3af;'>Folosește meniul lateral din stânga pentru a naviga instant prin secțiunile aplicației.</p>", unsafe_allow_html=True)
     
     col_h1, col_h2, col_h3 = st.columns(3)
     with col_h1:
