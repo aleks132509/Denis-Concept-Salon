@@ -5,7 +5,7 @@ import plotly.express as px
 import streamlit as st
 
 # ==========================================
-# CONFIGURARE PAGINĂ & DESIGN LUXURIOUS SALON
+# CONFIGURARE PAGINĂ & DESIGN SALON DE LUX
 # ==========================================
 st.set_page_config(
     page_title="Denis Concept Salon | Luxury Experience",
@@ -37,7 +37,6 @@ st.markdown(
     .overlap-alert { background-color: rgba(127, 29, 29, 0.85); color: #fca5a5; padding: 14px; border-radius: 10px; border: 1px solid #ef4444; font-weight: 600; margin-bottom: 12px;}
     .success-alert { background-color: rgba(6, 78, 59, 0.85); color: #6ee7b7; padding: 14px; border-radius: 10px; border: 1px solid #10b981; font-weight: 600; margin-bottom: 12px;}
     
-    /* Butoane elegante aurii */
     .stButton>button {
         background: linear-gradient(135deg, #e5c158 0%, #c5a059 100%) !important;
         color: #090a0f !important;
@@ -72,24 +71,25 @@ SERV_FILE = "servicii_denis_concept.csv"
 USER_FILE = "utilizatori_denis_concept.csv"
 
 def init_csvs():
+    today_str = date.today().strftime("%Y-%m-%d")
+    
     if not os.path.exists(PROG_FILE):
-        today_str = date.today().strftime("%Y-%m-%d")
-        past_str = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
-        future_str = (date.today() + timedelta(days=2)).strftime("%Y-%m-%d")
-        
         df_p = pd.DataFrame([
-            {"ID": 1, "Dată": past_str, "Ora Start": "10:00", "Ora Sfârșit": "10:30", "Client": "Maria Ionescu", "Telefon": "0721111222", "Serviciu": "Tuns Clasic", "Stilist": "Alex", "Preț": 60, "Durată": 30, "Status": "Efectuat", "Observații": "Client fidel salon"},
-            {"ID": 2, "Dată": today_str, "Ora Start": "12:00", "Ora Sfârșit": "12:45", "Client": "Ion Popescu", "Telefon": "0733444555", "Serviciu": "Tuns + Barbă", "Stilist": "Denis", "Preț": 90, "Durată": 45, "Status": "Confirmat", "Observații": "Preferă stil clasic"},
-            {"ID": 3, "Dată": future_str, "Ora Start": "15:00", "Ora Sfârșit": "16:00", "Client": "Elena Vasilescu", "Telefon": "0744777888", "Serviciu": "Vopsit Păr / Stil", "Stilist": "Alex", "Preț": 120, "Durată": 60, "Status": "Confirmat", "Observații": "Atenție la nuanță"}
+            {"ID": 1, "Dată": today_str, "Ora Start": "10:00", "Ora Sfârșit": "10:45", "Client": "Alex", "Telefon": "0722000000", "Serviciu": "Tuns + Barbă Fade", "Stilist": "Adrian", "Preț": 90, "Durată": 45, "Status": "Confirmat", "Observații": "Test programare Alex"},
+            {"ID": 2, "Dată": today_str, "Ora Start": "11:30", "Ora Sfârșit": "12:30", "Client": "Ionuț", "Telefon": "0733111222", "Serviciu": "Tuns Lung & Coafat", "Stilist": "Andreea", "Preț": 120, "Durată": 60, "Status": "Confirmat", "Observații": "Test programare Ionuț"}
         ])
         df_p.to_csv(PROG_FILE, index=False)
     
     if not os.path.exists(SERV_FILE):
         df_s = pd.DataFrame([
-            {"Serviciu": "Tuns Clasic", "Preț": 60, "Durată (min)": 30},
-            {"Serviciu": "Tuns + Barbă", "Preț": 90, "Durată (min)": 45},
-            {"Serviciu": "Aranjat Barbă", "Preț": 40, "Durată (min)": 20},
-            {"Serviciu": "Vopsit Păr / Stil", "Preț": 120, "Durată (min)": 60},
+            {"Serviciu": "Tuns Clasic Barber", "Preț": 50, "Durată (min)": 30, "Stilist": "Adrian"},
+            {"Serviciu": "Tuns + Barbă Fade", "Preț": 90, "Durată (min)": 45, "Stilist": "Adrian"},
+            {"Serviciu": "Aranjat Barbă & Contur", "Preț": 40, "Durată (min)": 20, "Stilist": "Adrian"},
+            {"Serviciu": "Vopsit Barbă", "Preț": 60, "Durată (min)": 30, "Stilist": "Adrian"},
+            {"Serviciu": "Tuns Scurt Dama", "Preț": 70, "Durată (min)": 45, "Stilist": "Andreea"},
+            {"Serviciu": "Tuns Lung & Coafat", "Preț": 120, "Durată (min)": 60, "Stilist": "Andreea"},
+            {"Serviciu": "Balayage / Decolorare", "Preț": 250, "Durată (min)": 120, "Stilist": "Andreea"},
+            {"Serviciu": "Vopsit Rădăcină", "Preț": 100, "Durată (min)": 50, "Stilist": "Andreea"},
         ])
         df_s.to_csv(SERV_FILE, index=False)
 
@@ -97,7 +97,9 @@ def init_csvs():
         df_u = pd.DataFrame([
             {"Utilizator": "Alex", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "0722000000"},
             {"Utilizator": "Denis", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "0733000000"},
-            {"Utilizator": "Maria Ionescu", "Parolă": "client123", "Rol": "Client", "Telefon": "0721111222"},
+            {"Utilizator": "Adrian", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "0744111222"},
+            {"Utilizator": "Andreea", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "0755222333"},
+            {"Utilizator": "Ionuț", "Parolă": "client123", "Rol": "Client", "Telefon": "0733111222"},
         ])
         df_u.to_csv(USER_FILE, index=False)
 
@@ -129,10 +131,10 @@ if not st.session_state.logged_in:
     _, col_auth, _ = st.columns([1, 1.4, 1])
     with col_auth:
         st.markdown("<h1 style='text-align: center; color: #e5c158; font-family: serif; letter-spacing: 2px;'>✂️ Denis Concept Salon</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #9ca3af; text-transform: uppercase; font-size: 12px; letter-spacing: 3px;'>Luxury Hair & Styling Experience</p><br>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #9ca3af; text-transform: uppercase; font-size: 12px; letter-spacing: 3px;'>Luxury Hair & Barber Experience</p><br>", unsafe_allow_html=True)
         
         with st.container(border=True):
-            u_input = st.text_input("👤 Utilizator / Nume Client", placeholder="ex: Alex sau Maria Ionescu")
+            u_input = st.text_input("👤 Utilizator / Nume", placeholder="ex: Alex, Ionuț, Adrian")
             p_input = st.text_input("🔑 Parolă", type="password")
             
             if st.button("✨ Intră în Cont", use_container_width=True):
@@ -207,17 +209,17 @@ else:
 # TAB 1: PROGRAMĂRI & CALENDAR
 # ==========================================
 with tabs[0]:
-    st.markdown("### 📅 Vizualizator Programări & Calendar VIP")
+    st.markdown("### 📅 Vizualizator Programări & Calendar")
     
     df_p = st.session_state.prog_df.copy()
     
     if is_admin:
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
-            view_mode = st.selectbox("Vizualizare Perioadă", ["Toate", "Săptămâna viitoare", "Luna aceasta", "Luni viitoare", "Programări Viitoare", "Programări Trecute"])
+            view_mode = st.selectbox("Vizualizare Perioadă", ["Toate", "Săptămâna aceasta", "Săptămâna viitoare", "Luna aceasta", "Luni viitoare", "Programări Viitoare", "Programări Trecute"])
         with col_f2:
-            stilisti_opt = ["Toți"] + [u for u, r in zip(st.session_state.users_df["Utilizator"], st.session_state.users_df["Rol"]) if r == "Administrator"]
-            fil_stilist = st.selectbox("Filtru Stilist", stilisti_opt)
+            stilisti_opt = ["Toți"] + ["Adrian", "Andreea", "Alex", "Denis"]
+            fil_stilist = st.selectbox("Filtru Stilist / Barber", stilisti_opt)
         with col_f3:
             fil_status = st.selectbox("Filtru Status", ["Toate", "Confirmat", "Efectuat", "Anulat"])
 
@@ -225,7 +227,11 @@ with tabs[0]:
         if not df_p.empty:
             df_p["Dată_dt"] = pd.to_datetime(df_p["Dată"], errors="coerce")
             
-            if view_mode == "Săptămâna viitoare":
+            if view_mode == "Săptămâna aceasta":
+                start_w = today - timedelta(days=today.weekday())
+                end_w = start_w + timedelta(days=6)
+                df_p = df_p[(df_p["Dată_dt"].dt.date >= start_w) & (df_p["Dată_dt"].dt.date <= end_w)]
+            elif view_mode == "Săptămâna viitoare":
                 start_w = today + timedelta(days=(7 - today.weekday()))
                 end_w = start_w + timedelta(days=6)
                 df_p = df_p[(df_p["Dată_dt"].dt.date >= start_w) & (df_p["Dată_dt"].dt.date <= end_w)]
@@ -335,14 +341,31 @@ with tabs[1]:
     with col_in1:
         client_nume = st.text_input("👤 Nume Client", value=current_user if not is_admin else "", key="input_client_nume")
         
-        # Telefon independent fara agenda device
         matched_c = [c for c in existent_clients if c["Client"].lower() == client_nume.lower()]
         default_tel = str(matched_c[0].get("Telefon", "")) if matched_c else ""
         client_tel = st.text_input("📞 Telefon Client", value=default_tel, placeholder="07xxxxxxxx", key="input_client_tel")
 
         p_data = st.date_input("📅 Dată Programare", value=date.today())
         
-        # Sloturi orare disponibile fixate
+        # Mai întâi alegem stilistul pentru a filtra serviciile corespunzătoare
+        p_stilist = st.selectbox("💈 Stilist / Barber", ["Adrian", "Andreea", "Alex", "Denis"])
+
+    with col_in2:
+        # Filtrăm serviciile în funcție de stilistul selectat
+        df_serv_all = st.session_state.serv_df
+        serv_filtered = df_serv_all[df_serv_all["Stilist"] == p_stilist]
+        if serv_filtered.empty:
+            serv_filtered = df_serv_all # fallback general
+            
+        serv_opt = serv_filtered["Serviciu"].tolist()
+        p_serviciu = st.selectbox("✂️ Serviciu Dorit (Specific Stilistului)", serv_opt)
+        
+        s_row = df_serv_all[df_serv_all["Serviciu"] == p_serviciu]
+        p_pret = int(s_row["Preț"].values[0]) if not s_row.empty else 50
+        p_durata = int(s_row["Durată (min)"].values[0]) if not s_row.empty else 30
+        
+        st.info(f"⏱️ Timp alocat: **{p_durata} minute** | 💰 Preț: **{p_pret} RON**")
+
         slot_options = [
             "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
             "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
@@ -350,19 +373,6 @@ with tabs[1]:
             "18:00", "18:30", "19:00", "19:30"
         ]
         p_ora = st.selectbox("⏰ Alege Slot Orar Disponibil", slot_options)
-
-    with col_in2:
-        serv_opt = st.session_state.serv_df["Serviciu"].tolist() if not st.session_state.serv_df.empty else ["Tuns"]
-        p_serviciu = st.selectbox("✂️ Serviciu Dorit", serv_opt)
-        
-        s_row = st.session_state.serv_df[st.session_state.serv_df["Serviciu"] == p_serviciu]
-        p_pret = int(s_row["Preț"].values[0]) if not s_row.empty else 50
-        p_durata = int(s_row["Durată (min)"].values[0]) if not s_row.empty else 30
-        
-        st.info(f"⏱️ Timp alocat serviciului: **{p_durata} minute** | 💰 Preț: **{p_pret} RON**")
-
-        stilisti_list = [u for u, r in zip(st.session_state.users_df["Utilizator"], st.session_state.users_df["Rol"]) if r == "Administrator"]
-        p_stilist = st.selectbox("💈 Stilist / Frizer", stilisti_list if stilisti_list else ["Alex"])
         p_obs = st.text_area("📝 Observații / Preferințe client")
 
     try:
@@ -374,11 +384,10 @@ with tabs[1]:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Verificare suprapunere sloturi în timp real
     data_str = p_data.strftime("%Y-%m-%d")
     has_ov, conflicts = check_overlap(p_stilist, data_str, p_ora, p_durata)
     if has_ov:
-        st.markdown(f'<div class="overlap-alert">⚠️ ATENȚIE SUPRAPUNERE: Stilistul {p_stilist} are deja o programare în acest interval ({p_ora} - {ora_sfarsit})! Poți continua oricum; va fi salvată și marcată cu roșu în tabel.</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="overlap-alert">⚠️ ATENȚIE SUPRAPUNERE: Stilistul {p_stilist} are deja o programare în acest interval ({p_ora} - {ora_sfarsit})! Poți continua; programarea va fi salvată și marcată cu roșu în tabel.</div>', unsafe_allow_html=True)
 
     if client_nume:
         c_history = st.session_state.prog_df[st.session_state.prog_df["Client"].str.contains(client_nume, case=False, na=False)] if not st.session_state.prog_df.empty else pd.DataFrame()
@@ -424,7 +433,7 @@ with tabs[1]:
 # TAB 3: SERVICII & PREȚURI (EDITABIL)
 # ==========================================
 with tabs[2]:
-    st.markdown("### 💇‍♂️ Gestiune & Catalog Servicii & Prețuri")
+    st.markdown("### 💇‍♂️ Gestiune & Catalog Servicii în funcție de Stilist")
     
     df_serv = st.session_state.serv_df.copy()
     st.dataframe(df_serv, use_container_width=True)
@@ -434,14 +443,15 @@ with tabs[2]:
         col_s1, col_s2, col_s3 = st.columns(3)
         
         with col_s1:
-            st.markdown("#### ➕ Adaugă Serviciu")
+            st.markdown("#### ➕ Adaugă Serviciu Nou")
             with st.form("add_serv"):
-                ns_nume = st.text_input("Nume Serviciu Nou")
+                ns_nume = st.text_input("Nume Serviciu")
+                ns_stilist = st.selectbox("Asignat Stilist", ["Adrian", "Andreea", "Alex", "Denis"])
                 ns_pret = st.number_input("Preț (RON)", min_value=0, value=50)
                 ns_durata = st.number_input("Durată (minute)", min_value=5, value=30)
                 if st.form_submit_button("Adaugă"):
                     if ns_nume:
-                        new_s = pd.DataFrame([{"Serviciu": ns_nume, "Preț": ns_pret, "Durată (min)": ns_durata}])
+                        new_s = pd.DataFrame([{"Serviciu": ns_nume, "Preț": ns_pret, "Durată (min)": ns_durata, "Stilist": ns_stilist}])
                         st.session_state.serv_df = pd.concat([st.session_state.serv_df, new_s], ignore_index=True)
                         save_all()
                         st.success("Serviciu adăugat!")
@@ -454,10 +464,11 @@ with tabs[2]:
                 s_curr = df_serv[df_serv["Serviciu"] == edit_target].iloc[0]
                 with st.form("edit_serv_form"):
                     e_nume = st.text_input("Nume nou", value=s_curr["Serviciu"])
+                    e_stilist = st.selectbox("Stilist", ["Adrian", "Andreea", "Alex", "Denis"], index=["Adrian", "Andreea", "Alex", "Denis"].index(s_curr["Stilist"]) if s_curr["Stilist"] in ["Adrian", "Andreea", "Alex", "Denis"] else 0)
                     e_pret = st.number_input("Preț nou (RON)", min_value=0, value=int(s_curr["Preț"]))
                     e_durata = st.number_input("Durată nouă (min)", min_value=5, value=int(s_curr["Durată (min)"]))
                     if st.form_submit_button("Salvează Modificări"):
-                        st.session_state.serv_df.loc[st.session_state.serv_df["Serviciu"] == edit_target, ["Serviciu", "Preț", "Durată (min)"]] = [e_nume, e_pret, e_durata]
+                        st.session_state.serv_df.loc[st.session_state.serv_df["Serviciu"] == edit_target, ["Serviciu", "Stilist", "Preț", "Durată (min)"]] = [e_nume, e_stilist, e_pret, e_durata]
                         save_all()
                         st.success("Serviciu actualizat!")
                         trigger_rerun()
@@ -526,9 +537,9 @@ if is_admin:
 # ==========================================
 if is_admin:
     with tabs[4]:
-        st.markdown("### ⚙️ Panou Setări & Gestiune Utilizatori VIP")
+        st.markdown("### ⚙️ Panou Setări & Gestiune Utilizatori")
         
-        st.markdown("#### 👥 Utilizatori & Roluri (Alex, Denis și Clienți)")
+        st.markdown("#### 👥 Utilizatori & Roluri (Administratori, Barbari, Stilisti & Clienți)")
         st.dataframe(st.session_state.users_df, use_container_width=True)
 
         col_u1, col_u2 = st.columns(2)
@@ -556,8 +567,8 @@ if is_admin:
             st.markdown("##### Șterge Utilizator")
             del_user_target = st.selectbox("Alege utilizatorul de șters", st.session_state.users_df["Utilizator"].tolist())
             if st.button("Șterge Utilizatorul", type="primary"):
-                if del_user_target in ["Alex", "Denis"]:
-                    st.error("Nu poți șterge administratorii principali ai salonului (Alex și Denis)!")
+                if del_user_target in ["Alex", "Denis", "Adrian", "Andreea"]:
+                    st.error("Nu poți șterge membrii principali ai echipei!")
                 else:
                     st.session_state.users_df = st.session_state.users_df[st.session_state.users_df["Utilizator"] != del_user_target]
                     save_all()
@@ -567,5 +578,5 @@ if is_admin:
         st.markdown("---")
         st.markdown("#### 🕒 Orar și Preferințe Salon")
         st.text_input("Program de lucru", value="Luni - Sâmbătă: 09:00 - 20:00")
-        st.text_input("Locație / Adresă Salon", value="Bulevardul Primăverii Nr. 20, București (Luxury Zone)")
+        st.text_input("Locație / Adresă Salon", value="Bulevardul Primăverii Nr. 20, București")
         st.success("Toate modificările sunt sincronizate în timp real.")
