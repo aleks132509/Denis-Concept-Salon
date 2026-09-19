@@ -228,6 +228,17 @@ def get_whatsapp_link(phone, text):
     encoded_text = urllib.parse.quote(text)
     return f"https://wa.me/{clean_phone}?text={encoded_text}"
 
+def highlight_appointment_status(row):
+    status = str(row.get("Status", ""))
+    mod_status = str(row.get("Status Modificare", ""))
+    if status == "Anulat" or mod_status == "Respins":
+        return ['background-color: rgba(127, 29, 29, 0.4); color: #fca5a5'] * len(row)
+    elif status == "Efectuat" or mod_status == "Aprobat":
+        return ['background-color: rgba(6, 78, 59, 0.4); color: #6ee7b7'] * len(row)
+    elif status == "Confirmat" or mod_status == "În Așteptare":
+        return ['background-color: rgba(180, 83, 9, 0.4); color: #fde68a'] * len(row)
+    return [''] * len(row)
+
 def render_marquee_banner():
     rev_aprobate_banner = st.session_state.rev_df[st.session_state.rev_df["Status"] == "Aprobat"] if not st.session_state.rev_df.empty else pd.DataFrame()
     if not rev_aprobate_banner.empty:
@@ -307,15 +318,16 @@ if not is_admin:
             st.sidebar.success("Telefon actualizat!")
             trigger_rerun()
     st.sidebar.markdown("---")
-
-wa_support_link = get_whatsapp_link("+40733000000", f"Salut, sunt {current_user} și doresc informații despre Denis Concept Salon.")
-st.sidebar.markdown(f"""
-<div style="text-align: center; margin-bottom: 15px;">
-    <a href="{wa_support_link}" target="_blank" class="whatsapp-btn" style="width: 100%; justify-content: center;">
-        💬 Contact Salon WhatsApp
-    </a>
-</div>
-""", unsafe_allow_html=True)
+    
+    # Buton WhatsApp Salon disponibil EXCLUSIV pentru clienți (Număr: +35796005530)
+    wa_support_link = get_whatsapp_link("+35796005530", f"Salut, sunt {current_user} și doresc informații despre Denis Concept Salon.")
+    st.sidebar.markdown(f"""
+    <div style="text-align: center; margin-bottom: 15px;">
+        <a href="{wa_support_link}" target="_blank" class="whatsapp-btn" style="width: 100%; justify-content: center;">
+            💬 Contact Salon WhatsApp
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
 
 if st.sidebar.button("🚪 Deconectare", use_container_width=True):
     st.session_state.logged_in = False
@@ -439,13 +451,7 @@ with tabs[0]:
         st.markdown("<br>", unsafe_allow_html=True)
 
         if not df_p.empty:
-            def highlight_overlaps(row):
-                has_ov, _ = check_overlap(row["Stilist"], row["Dată"], row["Ora Start"], float(row["Durată"]) if pd.notna(row["Durată"]) else 30, exclude_id=row.get("ID"))
-                if has_ov or row["Status"] == "Anulat":
-                    return ['background-color: rgba(127, 29, 29, 0.4); color: #fca5a5'] * len(row)
-                return [''] * len(row)
-
-            st.dataframe(df_p.style.apply(highlight_overlaps, axis=1), use_container_width=True)
+            st.dataframe(df_p.style.apply(highlight_appointment_status, axis=1), use_container_width=True)
             
             st.markdown("##### 📱 Acțiuni Rapide WhatsApp pentru Programări")
             selected_prog_wa_id = st.selectbox("Alege programarea pentru a contacta clientul", df_p["ID"].tolist(), format_func=lambda x: f"ID {x} - {df_p[df_p['ID']==x].iloc[0]['Client']} ({df_p[df_p['ID']==x].iloc[0]['Dată']} {df_p[df_p['ID']==x].iloc[0]['Ora Start']})")
@@ -464,9 +470,33 @@ with tabs[0]:
         df_p_all = st.session_state.prog_df.copy()
         client_progs = df_p_all[df_p_all["Client"].str.contains(client_name, case=False, na=False)] if not df_p_all.empty else pd.DataFrame()
         
+        # Verificare notificare aprobare modificare pentru client (Pop-up Verde)
+        approved_modifs_client = client_progs[client_progs["Status Modificare"] == "Aprobat"]
+        if not approved_modifs_client.empty:
+            st.markdown("""
+            <div class="success-alert">
+                🟢 <b>MODIFICARE APROBATĂ!</b> Solicitarea ta de modificare a fost aprobată cu succes de către stilist!
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Verificare notificare anulare salvată în sesiune (pentru ca stilistul să primească mesajul complet pe WhatsApp)
+        if "cancel_wa_info" in st.session_state:
+            c_info = st.session_state["cancel_wa_info"]
+            st.markdown(f"""
+            <div class="overlap-alert">
+                🛑 Programarea ta (ID: {c_info['id']}) a fost anulată cu succes!<br>
+                <b>Mesaj pregătit pentru stilistul {c_info['stilist']}:</b><br>
+                <i>{c_info['msg']}</i>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown(f'<a href="{c_info["link"]}" target="_blank" class="whatsapp-btn">💬 Trimite mesajul de ANULARE pe WhatsApp către stilistul {c_info["stilist"]}</a>', unsafe_allow_html=True)
+            if st.button("Închide Notificarea Anulării"):
+                del st.session_state["cancel_wa_info"]
+                trigger_rerun()
+
         st.markdown(f"#### Bun venit, {current_user}! Istoricul programărilor tale:")
         if not client_progs.empty:
-            st.dataframe(client_progs[["ID", "Dată", "Ora Start", "Ora Sfârșit", "Serviciu", "Stilist", "Preț", "Durată", "Status", "Status Modificare"]], use_container_width=True)
+            st.dataframe(client_progs[["ID", "Dată", "Ora Start", "Ora Sfârșit", "Serviciu", "Stilist", "Preț", "Durată", "Status", "Status Modificare"]].style.apply(highlight_appointment_status, axis=1), use_container_width=True)
             
             st.markdown("---")
             st.markdown("##### ❌ Anulare / ✏️ Modificare Programare")
@@ -496,49 +526,94 @@ with tabs[0]:
                             st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Status"] = "Anulat"
                             save_all()
                             
-                            st.markdown(f"""
-                            <div class="overlap-alert">
-                                🛑 Programarea ta (ID: {id_selected}) a fost anulată cu succes!
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
                             stylist_user_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == stilist_alocat]
-                            stylist_phone = stylist_user_row.iloc[0]["Telefon"] if not stylist_user_row.empty else "+40700000000"
-                            wa_msg = f"Salut {stilist_alocat}, clientul {current_user} a ANULAT programarea din data de {selected_row['Dată']} la ora {selected_row['Ora Start']}."
-                            wa_link = get_whatsapp_link(stylist_phone, wa_msg)
+                            stylist_phone = stylist_user_row.iloc[0]["Telefon"] if not stylist_user_row.empty else "+35796005530"
                             
-                            st.markdown(f"🔔 Stilistul **{stilist_alocat}** a fost notificat.")
-                            st.markdown(f'<a href="{wa_link}" target="_blank" class="whatsapp-btn">💬 Trimite notificare WhatsApp către stilistul {stilist_alocat}</a>', unsafe_allow_html=True)
+                            # Mesaj complet automat cu detaliile anulării (Data, client, slot, serviciu)
+                            wa_cancel_msg = (
+                                f"🚨 ANULARE PROGRAMARE 🚨\n"
+                                f"Stilist: {stilist_alocat}\n"
+                                f"Client: {current_user}\n"
+                                f"Data: {selected_row['Dată']}\n"
+                                f"Slot Orar: {selected_row['Ora Start']} - {selected_row['Ora Sfârșit']}\n"
+                                f"Serviciu: {selected_row['Serviciu']}\n"
+                                f"ID Programare: {id_selected}"
+                            )
+                            wa_link = get_whatsapp_link(stylist_phone, wa_cancel_msg)
+                            
+                            st.session_state["cancel_wa_info"] = {
+                                "id": id_selected,
+                                "stilist": stilist_alocat,
+                                "msg": wa_cancel_msg,
+                                "link": wa_link
+                            }
                             trigger_rerun()
 
                 with tab_m2:
                     st.markdown("""
                     <div class="info-alert">
-                        ⚠️ <b>ATENȚIE:</b> Orice modificare a programării necesită <b>aprobarea obligatorie a stilistului</b> înainte de a deveni definitivă!
+                        ⚠️ <b>ATENȚIE:</b> Alege data dorită, iar sistemul îți va afișa în dropdown <b>doar sloturile orare disponibile</b>. Modificarea necesită aprobare!
                     </div>
                     """, unsafe_allow_html=True)
                     
                     with st.form(f"mod_form_client_{id_selected}"):
-                        new_date = st.date_input("Noua Dată Dorită", value=datetime.strptime(selected_row["Dată"], "%Y-%m-%d").date())
-                        new_ora = st.text_input("Noua Oră Start (HH:MM)", value=selected_row["Ora Start"])
-                        new_serv = st.text_input("Serviciul Dorit / Modificări", value=selected_row["Serviciu"])
+                        new_date = st.date_input("Noua Dată Dorită", value=datetime.strptime(selected_row["Dată"], "%Y-%m-%d").date(), key=f"client_nd_{id_selected}")
+                        stilist_alocat = selected_row["Stilist"]
+                        durata_act = int(float(selected_row["Durată"])) if pd.notna(selected_row["Durată"]) else 30
+                        
+                        all_possible_slots = [
+                            "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+                            "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
+                            "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
+                            "18:00", "18:30", "19:00", "19:30"
+                        ]
+                        
+                        date_str_n = new_date.strftime("%Y-%m-%d")
+                        available_slots_mod = []
+                        for slot in all_possible_slots:
+                            has_ov, _ = check_overlap(stilist_alocat, date_str_n, slot, durata_act, exclude_id=id_selected)
+                            try:
+                                t_s = datetime.strptime(slot, "%H:%M")
+                                t_e = t_s + timedelta(minutes=durata_act)
+                                if t_e.time() <= datetime.strptime("20:00", "%H:%M").time() and not has_ov:
+                                    available_slots_mod.append(slot)
+                            except:
+                                pass
+
+                        if not available_slots_mod:
+                            st.warning("Nu există sloturi disponibile pentru data selectată la acest stilist.")
+                            new_ora = ""
+                        else:
+                            new_ora = st.selectbox("Alege Slotul Orar Disponibil", available_slots_mod, key=f"client_no_{id_selected}")
+
+                        new_serv = st.text_input("Serviciu / Mențiuni", value=selected_row["Serviciu"], key=f"client_ns_{id_selected}")
                         
                         if st.form_submit_button("Trimite Solicitarea de Modificare"):
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Status Modificare"] = "În Așteptare"
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Noua Dată"] = new_date.strftime("%Y-%m-%d")
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Noua Ora"] = new_ora
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Noul Serviciu"] = new_serv
-                            save_all()
-                            
-                            st.success("✅ Solicitarea de modificare a fost trimisă către stilist!")
-                            
-                            st_name = selected_row["Stilist"]
-                            st_row_u = st.session_state.users_df[st.session_state.users_df["Utilizator"] == st_name]
-                            st_phone = st_row_u.iloc[0]["Telefon"] if not st_row_u.empty else "+40700000000"
-                            wa_mod_msg = f"Salut {st_name}, clientul {current_user} a solicitat MODIFICAREA programării (ID: {id_selected}) pentru data de {new_date} la ora {new_ora}."
-                            wa_mod_link = get_whatsapp_link(st_phone, wa_mod_msg)
-                            st.markdown(f'<a href="{wa_mod_link}" target="_blank" class="whatsapp-btn">💬 Anunță stilistul {st_name} pe WhatsApp</a>', unsafe_allow_html=True)
-                            trigger_rerun()
+                            if not new_ora:
+                                st.error("Te rog selectează un slot orar valid!")
+                            else:
+                                st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Status Modificare"] = "În Așteptare"
+                                st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Noua Dată"] = date_str_n
+                                st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Noua Ora"] = new_ora
+                                st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Noul Serviciu"] = new_serv
+                                save_all()
+                                st.session_state["client_mod_sent_success"] = True
+                                trigger_rerun()
+
+                if st.session_state.get("client_mod_sent_success", False):
+                    st.markdown("""
+                    <div class="overlap-alert">
+                        🔴 <b>SOLICITARE TRIMISĂ SPRE APROBARE!</b> Cererea ta de modificare a fost înregistrată și trimisă stilistului spre validare.
+                    </div>
+                    """, unsafe_allow_html=True)
+                    del st.session_state["client_mod_sent_success"]
+
+                    st_name = selected_row["Stilist"]
+                    st_row_u = st.session_state.users_df[st.session_state.users_df["Utilizator"] == st_name]
+                    st_phone = st_row_u.iloc[0]["Telefon"] if not st_row_u.empty else "+35796005530"
+                    wa_mod_msg = f"Salut {st_name}, clientul {current_user} a solicitat MODIFICAREA programării (ID: {id_selected}). Te rugăm să verifici aplicația."
+                    wa_mod_link = get_whatsapp_link(st_phone, wa_mod_msg)
+                    st.markdown(f'<a href="{wa_mod_link}" target="_blank" class="whatsapp-btn">💬 Anunță stilistul {st_name} pe WhatsApp</a>', unsafe_allow_html=True)
             else:
                 st.info("Nu ai programări viitoare active pe care să le poți modifica sau anula.")
         else:
@@ -734,10 +809,20 @@ with tabs[1]:
                             save_all()
                             st.success("Modificarea a fost aprobată cu succes!")
                             
+                            # Trimite WhatsApp către CLIENT
                             cli_phone = req_r["Telefon"]
                             cli_wa_msg = f"Salut {req_r['Client']}, programarea ta la Denis Concept Salon a fost APROBATĂ pentru data de {req_r['Noua Dată']} la ora {req_r['Noua Ora']}."
                             cli_wa_link = get_whatsapp_link(cli_phone, cli_wa_msg)
-                            st.markdown(f'<a href="{cli_wa_link}" target="_blank" class="whatsapp-btn">💬 Trimite WhatsApp de confirmare către client</a>', unsafe_allow_html=True)
+                            st.markdown(f'<a href="{cli_wa_link}" target="_blank" class="whatsapp-btn">💬 Trimite WhatsApp de confirmare către CLIENT</a>', unsafe_allow_html=True)
+                            
+                            # Trimite WhatsApp către STILIST
+                            st_name = req_r["Stilist"]
+                            st_row_u = st.session_state.users_df[st.session_state.users_df["Utilizator"] == st_name]
+                            st_phone = st_row_u.iloc[0]["Telefon"] if not st_row_u.empty else "+35796005530"
+                            st_wa_msg = f"Salut {st_name}, modificarea pentru programarea ID {req_r['ID']} a clientului {req_r['Client']} a fost aprobată (Noua dată: {req_r['Noua Dată']} ora {req_r['Noua Ora']})."
+                            st_wa_link = get_whatsapp_link(st_phone, st_wa_msg)
+                            st.markdown(f'<a href="{st_wa_link}" target="_blank" class="whatsapp-btn">💬 Trimite WhatsApp de înștiințare către STILIST ({st_name})</a>', unsafe_allow_html=True)
+                            
                             trigger_rerun()
                             
                     with col_ap2:
@@ -1015,7 +1100,6 @@ if is_admin:
                 
                 if save_mod:
                     formatted_edited_tel = format_phone_input(e_tel)
-                    # Corecție eroare Pandas prin atribuire separată pe coloane
                     st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Parolă"] = e_pass
                     st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Rol"] = e_rol
                     st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Telefon"] = formatted_edited_tel
