@@ -37,7 +37,7 @@ st.markdown(
     .overlap-alert { background-color: rgba(127, 29, 29, 0.85); color: #fca5a5; padding: 14px; border-radius: 10px; border: 1px solid #ef4444; font-weight: 600; margin-bottom: 12px;}
     .success-alert { background-color: rgba(6, 78, 59, 0.95); color: #6ee7b7; padding: 14px; border-radius: 10px; border: 1px solid #10b981; font-weight: 600; margin-bottom: 12px;}
     
-    /* Stil Banner Rulant Recenzii (Viteză crescută) */
+    /* Stil Banner Rulant Recenzii (Viteză echilibrată / optimă pentru citit) */
     .marquee-container {
         overflow: hidden;
         white-space: nowrap;
@@ -50,7 +50,7 @@ st.markdown(
     }
     .marquee-content {
         display: inline-block;
-        animation: marquee 12s linear infinite;
+        animation: marquee 25s linear infinite;
         color: #f3f4f6;
         font-size: 14px;
         font-weight: 500;
@@ -220,7 +220,6 @@ st.sidebar.markdown(f"### ✂️ **{current_user}**")
 st.sidebar.markdown(f"Rol: <span class='role-tag'>{st.session_state.role}</span>", unsafe_allow_html=True)
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
-# Dacă este client, oferim posibilitatea de a vizualiza și edita numărul de telefon în sidebar
 if not is_admin:
     st.sidebar.markdown("##### 👤 Profilul Meu")
     user_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == current_user]
@@ -409,7 +408,6 @@ with tabs[1]:
             st.markdown(f'<div class="success-alert">{st.session_state["msg_status"]["text"]}</div>', unsafe_allow_html=True)
         del st.session_state["msg_status"]
 
-    # Preluare telefon salvat & ultimul stilist default pentru client
     default_tel = ""
     default_stilist_idx = 0
     stilisti_disponibili = ["Adrian", "Andreea", "Alex", "Denis"]
@@ -471,7 +469,6 @@ with tabs[1]:
         p_ora = None
 
         if is_admin:
-            # Afișare sloturi cu indicatori Verde/Roșu pentru admin
             slot_options_admin = []
             slot_map_admin = {}
             dur_check = total_durata if total_durata > 0 else 30
@@ -558,9 +555,6 @@ with tabs[1]:
 
     st.button("💾 Salvează Programarea", type="primary", use_container_width=True, on_click=action_save)
 
-    # ==========================================
-    # SECȚIUNE NOUĂ: GESTIONARE & MODIFICARE PROGRAMĂRI (MUTATĂ JOS, MAI USER FRIENDLY)
-    # ==========================================
     if is_admin:
         st.markdown("---")
         st.markdown("### ⚙️ Gestionare & Modificare Programări (După Dată și Interval Orar)")
