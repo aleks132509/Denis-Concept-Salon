@@ -9,6 +9,21 @@ import urllib.parse
 import urllib.request
 
 # ==========================================
+# CONFIGURARE FIȘIER CONFIG.TOML STREAMLIT (ELIMINARE DEFINITIVĂ ROȘU MULTISELECT)
+# ==========================================
+os.makedirs(".streamlit", exist_ok=True)
+config_toml_content = """
+[theme]
+primaryColor = "#e5c158"
+backgroundColor = "#0f1117"
+secondaryBackgroundColor = "#1a202c"
+textColor = "#f3f4f6"
+font = "sans serif"
+"""
+with open(".streamlit/config.toml", "w") as f:
+    f.write(config_toml_content.strip())
+
+# ==========================================
 # CONFIGURARE PAGINĂ & DESIGN SALON DE LUX
 # ==========================================
 st.set_page_config(
@@ -43,7 +58,7 @@ def apply_background_style(is_logged_in):
         font-family: 'Helvetica Neue', sans-serif;
     }
 
-    /* STILIZARE RIGUROASĂ AURIU-LUX PENTRU TOATE TAG-URILE DIN ST.MULTISELECT (ELIMINARE TOTALĂ ROȘU) */
+    /* STILIZARE RIGUROASĂ AURIU-LUX PENTRU TOATE TAG-URILE DIN ST.MULTISELECT */
     div[data-baseweb="tag"], 
     span[data-baseweb="tag"], 
     .stMultiSelect div[data-baseweb="tag"], 
