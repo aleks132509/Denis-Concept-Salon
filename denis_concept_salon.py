@@ -15,7 +15,7 @@ st.set_page_config(
     page_title="Denis Concept Salon | Luxury Experience",
     layout="wide",
     page_icon="✂️",
-    initial_sidebar_state="expanded", # Menține meniul lateral deschis și fix din start
+    initial_sidebar_state="collapsed", # Meniul este ascuns implicit și apare doar la apăsarea celor 3 linii
 )
 
 def apply_background_style(is_logged_in):
@@ -311,7 +311,7 @@ def remove_diacritics(text):
         without_diacritics = without_diacritics.replace(k, v)
     return without_diacritics
 
-# Trimitere corectă WhatsApp cu parametrii CallMeBot (source=php) pentru a evita mesajul „This is a test”
+# Trimitere corectă WhatsApp prin CallMeBot (folosind quote_plus pentru a evita mesajul de test)
 def send_free_automatic_whatsapp(phone, message, apikey):
     target_apikey = str(apikey).strip() if apikey and pd.notna(apikey) and str(apikey).strip() != "" and str(apikey).strip() != "nan" else MASTER_WHATSAPP_APIKEY
     target_phone = str(phone).strip() if phone and pd.notna(phone) and str(phone).strip() != "" else MASTER_WHATSAPP_PHONE
@@ -323,9 +323,8 @@ def send_free_automatic_whatsapp(phone, message, apikey):
         clean_phone = "40" + clean_phone
         
     clean_msg = remove_diacritics(message)
-    encoded_text = urllib.parse.quote(clean_msg)
-    # Adăugat source=php conform documentației oficiale CallMeBot pentru a trimite textul personalizat
-    url = f"https://api.callmebot.com/whatsapp.php?source=php&phone={clean_phone}&text={encoded_text}&apikey={target_apikey}"
+    encoded_text = urllib.parse.quote_plus(clean_msg)
+    url = f"https://api.callmebot.com/whatsapp.php?phone={clean_phone}&text={encoded_text}&apikey={target_apikey}"
     
     for attempt in range(1, 4):
         try:
@@ -483,6 +482,13 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     st.session_state.user = u_input
                     st.session_state.role = match.iloc[0]["Rol"]
+                    
+                    # Setare pagină implicită în funcție de rol
+                    if st.session_state.role in ["Administrator", "Stilist"]:
+                        st.session_state.selected_nav = "➕ Adaugă Programare"
+                    else:
+                        st.session_state.selected_nav = "📅 Programează-te"
+                        
                     st.toast("Autentificare reușită! Bine ai venit.", icon="✨")
                     trigger_rerun()
                 else:
@@ -560,15 +566,18 @@ if is_admin_or_stylist:
                     approval_popup(selected_req_data)
 
 # ==========================================
-# MENIU LATERAL FIX & BUTON HOME PERMANENT VIZIBIL
+# MENIU LATERAL ASCUNS (3 LINII) & BUTON HOME
 # ==========================================
 st.sidebar.markdown(f"### ✂️ **{current_user}**")
 st.sidebar.markdown(f"Rol: <span class='role-tag'>{st.session_state.role}</span>", unsafe_allow_html=True)
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
-# Buton Home fix și vizibil în partea de sus a meniului lateral
+# Buton Home care duce direct la pagina principală de adăugare programare sau programare client
 if st.sidebar.button("🏠 ACASĂ / HOME", use_container_width=True):
-    st.session_state.selected_nav = "🏠 Acasă / Dashboard"
+    if is_admin_or_stylist:
+        st.session_state.selected_nav = "➕ Adaugă Programare"
+    else:
+        st.session_state.selected_nav = "📅 Programează-te"
     trigger_rerun()
 
 st.sidebar.markdown("---")
@@ -576,8 +585,8 @@ st.sidebar.markdown("##### ☰ Meniu Principal Salon")
 
 if is_admin:
     nav_options = [
-        "🏠 Acasă / Dashboard",
         "➕ Adaugă Programare", 
+        "🏠 Acasă / Dashboard",
         "📅 Programările mele", 
         "⚙️ Gestiune & Aprobări", 
         "💇‍♂️ Servicii & Prețuri", 
@@ -587,8 +596,8 @@ if is_admin:
     ]
 elif is_stylist:
     nav_options = [
-        "🏠 Acasă / Dashboard",
         "➕ Adaugă Programare", 
+        "🏠 Acasă / Dashboard",
         "📅 Programările mele", 
         "⚙️ Gestiune & Aprobări", 
         "💇‍♂️ Servicii & Prețuri", 
@@ -597,8 +606,8 @@ elif is_stylist:
     ]
 else:
     nav_options = [
-        "🏠 Acasă / Dashboard",
         "📅 Programează-te", 
+        "🏠 Acasă / Dashboard",
         "📜 Programări curente & modificări", 
         "⭐ Recenzii Salon & Istoricul Meu"
     ]
@@ -655,7 +664,7 @@ is_home_view = selected_page == "🏠 Acasă / Dashboard"
 
 if is_home_view:
     st.markdown(f"### ✨ Bun venit la Denis Concept Salon, **{current_user}**!")
-    st.markdown("<p style='color: #9ca3af;'>Folosește meniul lateral din stânga pentru a naviga instant prin secțiunile aplicației.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #9ca3af;'>Folosește meniul lateral (butonul cu 3 linii din stânga sus) pentru a naviga prin secțiunile aplicației.</p>", unsafe_allow_html=True)
     
     col_h1, col_h2, col_h3 = st.columns(3)
     with col_h1:
@@ -850,8 +859,8 @@ elif not is_admin_or_stylist and selected_page == "📅 Programează-te":
                     total_durata += s_dur
             
             st.markdown(f"""
-            <div style="background: rgba(212, 175, 55, 0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(212, 175, 55, 0.3); margin-top: 5px; font-size: 13px;">
-                ⏱️ Durată: <b>{total_durata} min</b> | 💰 <b>Total: {total_pret} RON</b>
+            <div style="background: rgba(212, 175, 55, 0.15); padding: 12px; border-radius: 8px; border: 1px solid rgba(212, 175, 55, 0.5); margin-top: 5px; font-size: 14px;">
+                ⏱️ Durată: <b>{total_durata} min</b> &nbsp;|&nbsp; 💰 <b>Total: {total_pret} RON</b>
             </div>
             """, unsafe_allow_html=True)
 
@@ -883,7 +892,15 @@ elif not is_admin_or_stylist and selected_page == "📅 Programează-te":
 
             p_obs = st.text_area("📝 Observații / Preferințe", height=68)
 
-        submit_btn = st.form_submit_button("💾 Salvează Programarea", use_container_width=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        # Buton de salvare programare client evidențiat vizual prin container și stil
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(197, 160, 89, 0.1)); padding: 15px; border-radius: 12px; border: 2px solid #e5c158; text-align: center; margin-bottom: 10px;">
+            <b style="color: #e5c158; font-size: 15px;">✨ Apăsați butonul de mai jos pentru a finaliza programarea:</b>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        submit_btn = st.form_submit_button("🚀 SALVEAZĂ PROGRAMAREA ACUM", use_container_width=True)
         if submit_btn:
             if not client_nume:
                 st.toast("Te rog introdu numele clientului!", icon="❌")
