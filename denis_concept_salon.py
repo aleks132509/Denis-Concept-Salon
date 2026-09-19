@@ -1,4 +1,5 @@
 import os
+import time
 import unicodedata
 from datetime import date, datetime, timedelta
 import pandas as pd
@@ -17,19 +18,46 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Gestionare dinamică fundal: clar pentru login, blurry/elegant în interior
+def apply_background_style(is_logged_in):
+    if not is_logged_in:
+        st.markdown(
+            """
+            <style>
+            .stApp {
+                background: linear-gradient(rgba(5, 7, 10, 0.35), rgba(10, 14, 22, 0.55)), 
+                            url('https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1920&q=80') !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-attachment: fixed !important;
+                color: #f3f4f6 !important;
+                font-family: 'Helvetica Neue', sans-serif;
+            }
+            </style>
+        """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            """
+            <style>
+            .stApp {
+                background: linear-gradient(rgba(9, 11, 16, 0.92), rgba(15, 19, 28, 0.95)), 
+                            url('https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1920&q=80') !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-attachment: fixed !important;
+                color: #f3f4f6 !important;
+                font-family: 'Helvetica Neue', sans-serif;
+            }
+            </style>
+        """,
+            unsafe_allow_html=True,
+        )
+
 st.markdown(
     """
     <style>
-    /* Fundal clar, spectaculos și vizibil pentru Barber & Salon */
-    .stApp {
-        background: linear-gradient(rgba(5, 7, 10, 0.45), rgba(10, 14, 22, 0.65)), 
-                    url('https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1920&q=80') !important;
-        background-size: cover !important;
-        background-position: center !important;
-        background-attachment: fixed !important;
-        color: #f3f4f6 !important;
-        font-family: 'Helvetica Neue', sans-serif;
-    }
     .salon-card {
         background: linear-gradient(135deg, #131722 0%, #1a202c 100%);
         padding: 24px;
@@ -46,18 +74,6 @@ st.markdown(
     .success-alert { background-color: rgba(6, 78, 59, 0.95); color: #6ee7b7; padding: 14px; border-radius: 10px; border: 1px solid #10b981; font-weight: 600; margin-bottom: 12px;}
     .info-alert { background-color: rgba(30, 58, 138, 0.85); color: #93c5fd; padding: 14px; border-radius: 10px; border: 1px solid #3b82f6; font-weight: 600; margin-bottom: 12px;}
     .highlight-box { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 18px; border-radius: 12px; border: 2px solid #e5c158; margin-bottom: 15px; box-shadow: 0 6px 20px rgba(212, 175, 55, 0.35); }
-    
-    /* Stilizare etichete filtre în teal curat, fără roșu și fără X */
-    div[data-baseweb="tag"], span[data-baseweb="tag"] {
-        background-color: #0f766e !important;
-        color: #ffffff !important;
-        border: 1px solid #14b8a6 !important;
-    }
-    div[data-baseweb="tag"] svg, span[data-baseweb="tag"] svg,
-    div[data-baseweb="tag"] button, span[data-baseweb="tag"] button,
-    button[aria-label="Close"], button[aria-label="Delete"] {
-        display: none !important;
-    }
     
     .whatsapp-btn {
         display: inline-flex;
@@ -285,28 +301,91 @@ def remove_diacritics(text):
         without_diacritics = without_diacritics.replace(k, v)
     return without_diacritics
 
+# Asigurare livrare 100% cu sistem de retry (până la 3 încercări)
 def send_free_automatic_whatsapp(phone, message, apikey):
-    try:
-        target_apikey = str(apikey).strip() if apikey and pd.notna(apikey) and str(apikey).strip() != "" and str(apikey).strip() != "nan" else MASTER_WHATSAPP_APIKEY
-        target_phone = str(phone).strip() if phone and pd.notna(phone) and str(phone).strip() != "" else MASTER_WHATSAPP_PHONE
+    target_apikey = str(apikey).strip() if apikey and pd.notna(apikey) and str(apikey).strip() != "" and str(apikey).strip() != "nan" else MASTER_WHATSAPP_APIKEY
+    target_phone = str(phone).strip() if phone and pd.notna(phone) and str(phone).strip() != "" else MASTER_WHATSAPP_PHONE
+    
+    # Curățare completă a numérului (inclusiv spații, +, etc. pentru ex: +357 96005530)
+    clean_phone = "".join(filter(str.isdigit, str(target_phone)))
+    if clean_phone.startswith("0"):
+        clean_phone = "4" + clean_phone
+    elif not clean_phone.startswith("40") and len(clean_phone) == 9:
+        clean_phone = "40" + clean_phone
         
-        clean_phone = "".join(filter(str.isdigit, str(target_phone)))
-        if clean_phone.startswith("0"):
-            clean_phone = "4" + clean_phone
-        elif not clean_phone.startswith("40") and len(clean_phone) == 9:
-            clean_phone = "40" + clean_phone
-            
-        clean_msg = remove_diacritics(message)
-        encoded_text = urllib.parse.quote(clean_msg)
-        url = f"https://api.callmebot.com/whatsapp.php?phone={clean_phone}&text={encoded_text}&apikey={target_apikey}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=6) as response:
-            return response.status == 200
-    except Exception as e:
-        print("Erore trimitere WhatsApp automat CallMeBot:", e)
-        return False
+    clean_msg = remove_diacritics(message)
+    encoded_text = urllib.parse.quote(clean_msg)
+    url = f"https://api.callmebot.com/whatsapp.php?phone={clean_phone}&text={encoded_text}&apikey={target_apikey}"
+    
+    for attempt in range(1, 4):
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=8) as response:
+                if response.status == 200:
+                    return True
+        except Exception as e:
+            print(f"Încercare {attempt} eșuată trimitere WhatsApp:", e)
+        time.sleep(1)
+    return False
 
-# Motor de randare tabele stilizate de lux (ascunde complet Nr. Programare / ID)
+# Formatare dată în limba română (ex: Luni, 21 Octombrie 2026)
+RO_DAYS = {0: "Luni", 1: "Marți", 2: "Miercuri", 3: "Joi", 4: "Vineri", 5: "Sâmbătă", 6: "Duminică"}
+RO_MONTHS = {1: "Ianuarie", 2: "Februarie", 3: "Martie", 4: "Aprilie", 5: "Mai", 6: "Iunie", 7: "Iulie", 8: "August", 9: "Septembrie", 10: "Octombrie", 11: "Noiembrie", 12: "Decembrie"}
+
+def format_ro_date(d_input):
+    if pd.isna(d_input) or not d_input:
+        return ""
+    try:
+        if isinstance(d_input, str):
+            dt = datetime.strptime(d_input.strip()[:10], "%Y-%m-%d")
+        elif isinstance(d_input, (date, datetime)):
+            dt = pd.to_datetime(d_input)
+        else:
+            return str(d_input)
+        day_name = RO_DAYS[dt.weekday()]
+        month_name = RO_MONTHS[dt.month]
+        return f"{day_name}, {dt.day} {month_name} {dt.year}"
+    except:
+        return str(d_input)
+
+# Componentă personalizată pentru filtre cu bife (fără roșu și fără x)
+def custom_checkbox_multiselect(label, options, key_prefix, default=None):
+    if default is None:
+        default = options
+    st.markdown(f"<b style='color: #e5c158; font-size: 13px;'>{label}</b>", unsafe_allow_html=True)
+    
+    if f"sel_{key_prefix}" not in st.session_state:
+        st.session_state[f"sel_{key_prefix}"] = default
+        
+    selected_items = st.session_state[f"sel_{key_prefix}"]
+    
+    # Afișare elemente selectate sus ca badge-uri în culoare teal/verde
+    if selected_items:
+        badges_html = " ".join([f"<span style='background: #0f766e; color: white; padding: 4px 10px; border-radius: 6px; margin-right: 6px; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 4px;'>✓ {item}</span>" for item in selected_items])
+        st.markdown(f"<div style='margin-bottom: 6px;'>{badges_html}</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<span style='color: #9ca3af; font-size: 12px;'>Niciun element selectat</span>", unsafe_allow_html=True)
+        
+    with st.expander(f"📂 Deschide opțiuni pentru {label}", expanded=False):
+        col_b1, col_b2 = st.columns(2)
+        with col_b1:
+            if st.button("Selectează Tot", key=f"all_{key_prefix}"):
+                st.session_state[f"sel_{key_prefix}"] = options
+                trigger_rerun()
+        with col_b2:
+            if st.button("Deselectează Tot", key=f"none_{key_prefix}"):
+                st.session_state[f"sel_{key_prefix}"] = []
+                trigger_rerun()
+                
+        new_selected = []
+        for opt in options:
+            is_chk = opt in st.session_state[f"sel_{key_prefix}"]
+            if st.checkbox(opt, value=is_chk, key=f"chk_{key_prefix}_{opt}"):
+                new_selected.append(opt)
+        st.session_state[f"sel_{key_prefix}"] = new_selected
+    return st.session_state[f"sel_{key_prefix}"]
+
+# Motor de randare tabele stilizate de lux (aplică formatul de dată românesc)
 def render_lux_table(df):
     if df.empty:
         return "<div style='text-align: center; padding: 25px; color: #9ca3af; background: #131722; border-radius: 12px; border: 1px solid rgba(212, 175, 55, 0.2);'>Nu există înregistrări de afișat momentan.</div>"
@@ -315,6 +394,9 @@ def render_lux_table(df):
     for drop_col in ["Nr. Programare", "ID"]:
         if drop_col in df_render.columns:
             df_render = df_render.drop(columns=[drop_col])
+            
+    if "Dată" in df_render.columns:
+        df_render["Dată"] = df_render["Dată"].apply(format_ro_date)
             
     if "Status Modificare" in df_render.columns:
         for i, row in df_render.iterrows():
@@ -373,12 +455,14 @@ def render_marquee_banner():
         """, unsafe_allow_html=True)
 
 # ==========================================
-# SESIUNE & AUTENTIFICARE (Suport tasta ENTER)
+# SESIUNE & AUTENTIFICARE
 # ==========================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user = None
     st.session_state.role = None
+
+apply_background_style(st.session_state.logged_in)
 
 if not st.session_state.logged_in:
     render_marquee_banner()
@@ -387,7 +471,7 @@ if not st.session_state.logged_in:
     _, col_auth, _ = st.columns([1, 1.4, 1])
     with col_auth:
         st.markdown("<h1 style='text-align: center; color: #e5c158; font-family: serif; letter-spacing: 2px;'>✂️ Denis Concept Salon</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #9ca3af; text-transform: uppercase; font-size: 12px; letter-spacing: 3px;'>Luxury Hair & Barber Experience</p><br>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #cbd5e1; text-transform: uppercase; font-size: 12px; letter-spacing: 3px; font-weight: 700;'>Luxury Hair & Barber Experience</p><br>", unsafe_allow_html=True)
         
         with st.form("login_form_streamlit"):
             u_input = st.text_input("👤 Utilizator / Nume", placeholder="ex: Alex, Ionuț, Adrian")
@@ -418,7 +502,7 @@ current_user = st.session_state.user
 render_marquee_banner()
 
 # ==========================================
-# SIDEBAR / MENIU LATERAL
+# SIDEBAR / MENIU LATERAL & NAVIGARE RAPIDĂ
 # ==========================================
 st.sidebar.markdown(f"### ✂️ **{current_user}**")
 st.sidebar.markdown(f"Rol: <span class='role-tag'>{st.session_state.role}</span>", unsafe_allow_html=True)
@@ -457,16 +541,6 @@ if st.sidebar.button("🚪 Deconectare", use_container_width=True):
 
 st.sidebar.markdown("---")
 
-if is_admin_or_stylist:
-    df_prog_all = st.session_state.prog_df
-    pending_modifs = df_prog_all[df_prog_all["Status Modificare"] == "În Așteptare"]
-    if not pending_modifs.empty:
-        st.markdown(f"""
-        <div class="overlap-alert">
-            🔔 <b>ATENȚIE!</b> Există <b>{len(pending_modifs)}</b> cereri de modificare programare în așteptarea aprobării! Verifică tabul <b>⚙️ Gestiune & Aprobări</b>.
-        </div>
-        """, unsafe_allow_html=True)
-
 def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_nr=None):
     try:
         t_start = datetime.strptime(ora_start_str, "%H:%M").time()
@@ -494,16 +568,14 @@ def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_nr=None)
                 pass
     return len(conflicts) > 0, conflicts
 
-# ==========================================
-# CONFIGURARE TAB-URI ÎN FUNCȚIE DE ROL
-# ==========================================
+# Definire tab-uri în funcție de rol
 stilisti_disponibili = ["Adrian", "Andreea", "Alex", "Denis"]
 default_stylist_idx = 0
 if is_admin_or_stylist and current_user in stilisti_disponibili:
     default_stylist_idx = stilisti_disponibili.index(current_user)
 
 if is_admin:
-    tabs = st.tabs([
+    tab_titles = [
         "📅 Programările mele", 
         "➕ Adaugă Programare", 
         "⚙️ Gestiune & Aprobări", 
@@ -511,38 +583,64 @@ if is_admin:
         "⭐ Recenzii", 
         "📊 Raport Financiar", 
         "⚙️ Setări & Utilizatori"
-    ])
+    ]
 elif is_stylist:
-    tabs = st.tabs([
+    tab_titles = [
         "📅 Programările mele", 
         "➕ Adaugă Programare", 
         "⚙️ Gestiune & Aprobări", 
         "💇‍♂️ Servicii & Prețuri", 
         "⭐ Recenzii & Istoric",
         "📊 Raport Financiarul Meu"
-    ])
+    ]
 else:
-    tabs = st.tabs([
+    tab_titles = [
         "📅 Programează-te", 
         "📜 Programări curente & modificări programări", 
         "⭐ Recenzii Salon & Istoricul Meu"
-    ])
+    ]
+
+# Gestionare navigație prin state (permite redirecționarea automată de la notificare)
+if "current_tab_idx" not in st.session_state:
+    st.session_state.current_tab_idx = 0
+
+tabs = st.tabs(tab_titles)
+
+# Alertele pentru cereri în așteptare și posibilitatea de a merge direct la aprobări
+if is_admin_or_stylist:
+    df_prog_all = st.session_state.prog_df
+    pending_modifs = df_prog_all[df_prog_all["Status Modificare"] == "În Așteptare"]
+    if not pending_modifs.empty:
+        col_al1, col_al2 = st.columns([4, 1])
+        with col_al1:
+            st.markdown(f"""
+            <div class="overlap-alert" style="margin-bottom: 0;">
+                🔔 <b>ATENȚIE!</b> Există <b>{len(pending_modifs)}</b> cereri de modificare programare în așteptarea aprobării!
+            </div>
+            """, unsafe_allow_html=True)
+        with col_al2:
+            if st.button("👉 Gestionează Aprobările"):
+                # Găsește indexul tabului de gestiune & aprobări
+                for idx, t_name in enumerate(tab_titles):
+                    if "Gestiune" in t_name or "Aprobări" in t_name:
+                        st.session_state.current_tab_idx = idx
+                        trigger_rerun()
 
 # ==========================================
 # TAB 1: PROGRAMĂRILE MELE (Admin/Stilist) / PROGRAMARE NOUĂ (Client)
 # ==========================================
 with tabs[0]:
     if is_admin_or_stylist:
-        st.markdown(f"### 📅 Programările mele — {current_user} (Active & În Așteptare)")
+        st.markdown(f"### 📅 Programările mele — {current_user}")
         df_p = st.session_state.prog_df.copy()
         
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
             view_mode = st.selectbox("Vizualizare Perioadă", ["Toate", "Azi", "Mâine", "Săptămâna aceasta", "Săptămâna viitoare", "Luna aceasta", "Programări Viitoare", "Programări Trecute"])
         with col_f2:
-            fil_stilist = st.multiselect("Alege Stilist", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili)
+            fil_stilist = custom_checkbox_multiselect("Alege Stilist", stilisti_disponibili, "stilist_tab0", default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili)
         with col_f3:
-            fil_status = st.multiselect("Alege Status Programare", options=["Confirmat", "În Așteptare"], default=["Confirmat", "În Așteptare"])
+            fil_status = custom_checkbox_multiselect("Alege Status Programare", ["Confirmat", "În Așteptare"], "status_tab0", default=["Confirmat", "În Așteptare"])
 
         today = date.today()
         if not df_p.empty:
@@ -624,7 +722,7 @@ with tabs[0]:
                 wa_link_admin = get_whatsapp_link(cli_phone_wa, wa_msg_admin)
                 st.markdown(f'<a href="{wa_link_admin}" target="_blank" class="whatsapp-btn">💬 Trimite WhatsApp către {row_sel_wa["Client"]}</a>', unsafe_allow_html=True)
         else:
-            st.info("Nu există programări active sau în așteptare care să corespundă filtrelor selectate.")
+            st.info("Nu există programări care să corespundă filtrelor selectate.")
 
     else:
         # Client Tab 1: Programează-te
@@ -909,7 +1007,7 @@ with tabs[1]:
             st.toast(st.session_state["cancel_success_alert"], icon="✅")
             del st.session_state["cancel_success_alert"]
 
-        # 1. TABELUL DE PROGRAMĂRI CURENTE (Apar direct sub titlu)
+        # 1. TABELUL DE PROGRAMĂRI CURENTE
         st.markdown("##### 📅 Programări curente")
         current_active_progs = client_progs[(client_progs["Dată"] >= str(date.today())) & (client_progs["Status"] == "Confirmat")]
         if not current_active_progs.empty:
@@ -928,10 +1026,9 @@ with tabs[1]:
         if not viitoare.empty:
             prog_options = {}
             for _, r in viitoare.iterrows():
-                label = f"Data: {r['Dată']} | Ora: {r['Ora Start']} | Serviciu: {r['Serviciu']} | Stilist: {r['Stilist']}"
+                label = f"Data: {format_ro_date(r['Dată'])} | Ora: {r['Ora Start']} | Serviciu: {r['Serviciu']} | Stilist: {r['Stilist']}"
                 prog_options[label] = int(r['Nr. Programare'])
             
-            # Highlight vizibil pe selectorul cerut
             st.markdown("""
             <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 14px 18px; border-radius: 12px; border: 2px solid #e5c158; margin-bottom: 8px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.25);">
                 <b style="color: #e5c158; font-size: 14px;">👇 Alege programarea pe care vrei sa o modifici:</b>
@@ -945,7 +1042,7 @@ with tabs[1]:
             st.markdown(f"""
             <div class="highlight-box">
                 ✨ <b>Programarea selectată pentru acțiune:</b><br>
-                📅 Dată: <b>{selected_row['Dată']}</b> &nbsp;|&nbsp; ⏰ Oră: <b>{selected_row['Ora Start']} - {selected_row['Ora Sfârșit']}</b><br>
+                📅 Dată: <b>{format_ro_date(selected_row['Dată'])}</b> &nbsp;|&nbsp; ⏰ Oră: <b>{selected_row['Ora Start']} - {selected_row['Ora Sfârșit']}</b><br>
                 ✂️ Serviciu: <b>{selected_row['Serviciu']}</b> &nbsp;|&nbsp; 💈 Stilist: <b>{selected_row['Stilist']}</b>
             </div>
             """, unsafe_allow_html=True)
@@ -1046,7 +1143,7 @@ with tabs[1]:
 
         st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-        # 3. ISTORIC COMPLET PROGRAMĂRI TRECUTE / ANULATE
+        # 3. ISTORIC COMPLET
         st.markdown("##### 📜 Istoric")
         past_history_progs = client_progs[(client_progs["Dată"] < str(date.today())) | (client_progs["Status"] != "Confirmat")]
         if not past_history_progs.empty:
@@ -1071,8 +1168,18 @@ if is_admin_or_stylist:
             for _, req_r in pending_requests.iterrows():
                 with st.container(border=True):
                     st.markdown(f"**Client:** {req_r['Client']} | **Stilist Asignat:** {req_r['Stilist']}")
-                    st.markdown(f"📅 Data actuală: `{req_r['Dată']} {req_r['Ora Start']}` ➡️ **Solicitat nou:** `{req_r['Noua Dată']} {req_r['Noua Ora']}` | Serviciu nou: *{req_r['Noul Serviciu']}*")
+                    st.markdown(f"📅 Data actuală: `{format_ro_date(req_r['Dată'])} {req_r['Ora Start']}` ➡️ **Solicitat nou:** `{format_ro_date(req_r['Noua Dată'])} {req_r['Noua Ora']}` | Serviciu nou: *{req_r['Noul Serviciu']}*")
                     
+                    # Verificare suprapunere pentru cererea în așteptare
+                    req_dur = int(float(req_r["Durată"])) if pd.notna(req_r["Durată"]) else 30
+                    has_ov_req, conflicts_req = check_overlap(req_r["Stilist"], req_r["Noua Dată"], req_r["Noua Ora"], req_dur, exclude_nr=req_r["Nr. Programare"])
+                    if has_ov_req:
+                        st.markdown("""
+                        <div class="overlap-alert">
+                            ⚠️ <b>ATENȚIE SUPRAPUNERE:</b> Noul interval orar solicitat se suprapune cu o altă programare existentă pentru acest stilist!
+                        </div>
+                        """, unsafe_allow_html=True)
+
                     col_ap1, col_ap2 = st.columns(2)
                     with col_ap1:
                         if st.button(f"✅ Aprobă (Client: {req_r['Client']})", key=f"app_mod_{req_r['Nr. Programare']}"):
@@ -1180,7 +1287,7 @@ if is_admin_or_stylist:
                         st.toast("Programare ștersă definitiv.", icon="🗑️")
                         trigger_rerun()
             else:
-                st.info(f"Nu există programări înregistrate pentru data de {date_str_mg} cu filtrele selectate.")
+                st.info(f"Nu există programări înregistrate pentru data selectată cu filtrele curente.")
         else:
             st.info("Nu există programări în sistem.")
 
@@ -1192,7 +1299,7 @@ if is_admin_or_stylist:
         st.markdown("### 💇‍♂️ Gestiune & Catalog Servicii în funcție de Stilist")
         df_serv = st.session_state.serv_df.copy()
         
-        sel_serv_filter = st.multiselect("Alege Stilist pentru Catalog", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili)
+        sel_serv_filter = custom_checkbox_multiselect("Alege Stilist pentru Catalog", stilisti_disponibili, "stilist_tab3", default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili)
         if sel_serv_filter:
             df_serv_filtered = df_serv[df_serv["Stilist"].isin(sel_serv_filter)]
         else:
@@ -1255,7 +1362,7 @@ if is_admin_or_stylist:
         st.markdown("### ⭐ Moderare Recenzii & Istoric Complet")
         rev_df = st.session_state.rev_df.copy()
         
-        sel_rev_stilist = st.multiselect("Alege Stilist pentru Recenzii", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, key="rev_stilist_multiselect")
+        sel_rev_stilist = custom_checkbox_multiselect("Alege Stilist pentru Recenzii", stilisti_disponibili, "stilist_tab4", default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili)
         
         if sel_rev_stilist:
             rev_df_filtered = rev_df[rev_df["Stilist"].isin(sel_rev_stilist)]
@@ -1334,8 +1441,9 @@ if is_stylist:
             st.markdown("<br>", unsafe_allow_html=True)
             
             if not df_f.empty:
+                df_f["Dată_Ro"] = df_f["Dată"].apply(format_ro_date)
                 fig = px.bar(
-                    df_f, x="Dată", y="Preț", color="Status",
+                    df_f, x="Dată_Ro", y="Preț", color="Status",
                     title=f"Încasările Tale pe Dată ({current_user})",
                     template="plotly_dark",
                     color_discrete_sequence=["#e5c158", "#38bdf8", "#34d399", "#f43f5e"]
@@ -1380,8 +1488,9 @@ if is_admin:
             st.markdown("<br>", unsafe_allow_html=True)
             
             if not df_f.empty:
+                df_f["Dată_Ro"] = df_f["Dată"].apply(format_ro_date)
                 fig = px.bar(
-                    df_f, x="Dată", y="Preț", color="Stilist", barmode="group",
+                    df_f, x="Dată_Ro", y="Preț", color="Stilist", barmode="group",
                     title="Încasări Detaliate pe Stilist și Dată",
                     template="plotly_dark",
                     color_discrete_sequence=["#e5c158", "#38bdf8", "#34d399", "#f43f5e"]
