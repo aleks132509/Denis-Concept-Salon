@@ -19,25 +19,24 @@ st.set_page_config(
 )
 
 def apply_background_style(is_logged_in):
-    # Fundal spectaculos de salon cu elemente de coafură/foarfece și tonuri de gri antracit & auriu
     salon_bg_url = "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1920&q=80"
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background: linear-gradient(135deg, rgba(15, 17, 23, 0.91) 0%, rgba(25, 29, 38, 0.94) 100%),
-                        radial-gradient(circle at 50% 35%, rgba(212, 175, 55, 0.28) 0%, transparent 75%),
-                        url('{salon_bg_url}') !important;
-            background-size: cover !important;
-            background-position: center !important;
-            background-attachment: fixed !important;
-            color: #f3f4f6 !important;
-            font-family: 'Helvetica Neue', sans-serif;
-        }
-        </style>
-    """,
-        unsafe_allow_html=True,
-    )
+    
+    css_template = """
+    <style>
+    .stApp {
+        background: linear-gradient(135deg, rgba(15, 17, 23, 0.91) 0%, rgba(25, 29, 38, 0.94) 100%),
+                    radial-gradient(circle at 50% 35%, rgba(212, 175, 55, 0.28) 0%, transparent 75%),
+                    url('REPLACE_URL') !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-attachment: fixed !important;
+        color: #f3f4f6 !important;
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+    </style>
+    """
+    final_css = css_template.replace("REPLACE_URL", salon_bg_url)
+    st.markdown(final_css, unsafe_allow_html=True)
 
 st.markdown(
     """
