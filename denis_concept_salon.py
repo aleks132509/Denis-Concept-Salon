@@ -39,7 +39,30 @@ st.markdown(
     .success-alert { background-color: rgba(6, 78, 59, 0.95); color: #6ee7b7; padding: 14px; border-radius: 10px; border: 1px solid #10b981; font-weight: 600; margin-bottom: 12px;}
     .info-alert { background-color: rgba(30, 58, 138, 0.85); color: #93c5fd; padding: 14px; border-radius: 10px; border: 1px solid #3b82f6; font-weight: 600; margin-bottom: 12px;}
     
-    /* Stil Banner Rulant Recenzii (Pornire instantanee fără click) */
+    /* Stil Buton WhatsApp Integrat */
+    .whatsapp-btn {
+        display: inline-flex;
+        align-items: center;
+        background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+        color: white !important;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+        margin: 6px 0;
+        transition: all 0.3s ease;
+        font-size: 14px;
+        letter-spacing: 0.5px;
+    }
+    .whatsapp-btn:hover {
+        opacity: 0.95;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(37, 211, 102, 0.6);
+        color: white !important;
+    }
+    
+    /* Stil Banner Rulant Recenzii (Pornire instantanee) */
     .marquee-container {
         overflow: hidden;
         white-space: nowrap;
@@ -67,12 +90,12 @@ st.markdown(
         color: #e5c158;
     }
     @keyframes marquee {
-        0% { transform: translateX(100%); }
-        100% { transform: translateX(-100%); }
+        0% { transform: translateX(0%); }
+        100% { transform: translateX(-50%); }
     }
     @-webkit-keyframes marquee {
-        0% { -webkit-transform: translateX(100%); }
-        100% { -webkit-transform: translateX(-100%); }
+        0% { -webkit-transform: translateX(0%); }
+        100% { -webkit-transform: translateX(-50%); }
     }
 
     .stButton>button {
@@ -115,8 +138,8 @@ def init_csvs():
     
     if not os.path.exists(PROG_FILE):
         df_p = pd.DataFrame([
-            {"ID": 1, "Dată": today_str, "Ora Start": "10:00", "Ora Sfârșit": "10:45", "Client": "Alex", "Telefon": "0722000000", "Serviciu": "Tuns + Barbă Fade", "Stilist": "Adrian", "Preț": 90, "Durată": 45, "Status": "Confirmat", "Observații": "Test programare Alex", "Status Modificare": "Niciuna", "Noua Dată": "", "Noua Ora": "", "Noul Serviciu": "", "Motiv Refuz": ""},
-            {"ID": 2, "Dată": future_str, "Ora Start": "11:30", "Ora Sfârșit": "12:30", "Client": "Ionuț", "Telefon": "0733111222", "Serviciu": "Tuns Lung & Coafat", "Stilist": "Andreea", "Preț": 120, "Durată": 60, "Status": "Confirmat", "Observații": "Test programare Ionuț", "Status Modificare": "Niciuna", "Noua Dată": "", "Noua Ora": "", "Noul Serviciu": "", "Motiv Refuz": ""}
+            {"ID": 1, "Dată": today_str, "Ora Start": "10:00", "Ora Sfârșit": "10:45", "Client": "Alex", "Telefon": "+40722000000", "Serviciu": "Tuns + Barbă Fade", "Stilist": "Adrian", "Preț": 90, "Durată": 45, "Status": "Confirmat", "Observații": "Test programare Alex", "Status Modificare": "Niciuna", "Noua Dată": "", "Noua Ora": "", "Noul Serviciu": "", "Motiv Refuz": ""},
+            {"ID": 2, "Dată": future_str, "Ora Start": "11:30", "Ora Sfârșit": "12:30", "Client": "Ionuț", "Telefon": "+40733111222", "Serviciu": "Tuns Lung & Coafat", "Stilist": "Andreea", "Preț": 120, "Durată": 60, "Status": "Confirmat", "Observații": "Test programare Ionuț", "Status Modificare": "Niciuna", "Noua Dată": "", "Noua Ora": "", "Noul Serviciu": "", "Motiv Refuz": ""}
         ])
         df_p.to_csv(PROG_FILE, index=False)
     else:
@@ -142,11 +165,11 @@ def init_csvs():
 
     if not os.path.exists(USER_FILE):
         df_u = pd.DataFrame([
-            {"Utilizator": "Alex", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "0722000000"},
-            {"Utilizator": "Denis", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "0733000000"},
-            {"Utilizator": "Adrian", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "0744111222"},
-            {"Utilizator": "Andreea", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "0755222333"},
-            {"Utilizator": "Ionuț", "Parolă": "client123", "Rol": "Client", "Telefon": "0733111222"},
+            {"Utilizator": "Alex", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "+40722000000"},
+            {"Utilizator": "Denis", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "+40733000000"},
+            {"Utilizator": "Adrian", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "+40744111222"},
+            {"Utilizator": "Andreea", "Parolă": "admin123", "Rol": "Administrator", "Telefon": "+40755222333"},
+            {"Utilizator": "Ionuț", "Parolă": "client123", "Rol": "Client", "Telefon": "+40733111222"},
         ])
         df_u.to_csv(USER_FILE, index=False)
 
@@ -160,10 +183,22 @@ def init_csvs():
 init_csvs()
 
 def load_data():
-    st.session_state.prog_df = pd.read_csv(PROG_FILE)
+    st.session_state.prog_df = pd.read_csv(PROG_FILE, dtype=str)
+    for col in ["ID", "Preț", "Durată"]:
+        if col in st.session_state.prog_df.columns:
+            st.session_state.prog_df[col] = pd.to_numeric(st.session_state.prog_df[col], errors="coerce")
+            
     st.session_state.serv_df = pd.read_csv(SERV_FILE)
-    st.session_state.users_df = pd.read_csv(USER_FILE)
-    st.session_state.rev_df = pd.read_csv(REV_FILE)
+    for col in ["Preț", "Durată (min)"]:
+        if col in st.session_state.serv_df.columns:
+            st.session_state.serv_df[col] = pd.to_numeric(st.session_state.serv_df[col], errors="coerce")
+            
+    st.session_state.users_df = pd.read_csv(USER_FILE, dtype=str)
+    st.session_state.rev_df = pd.read_csv(REV_FILE, dtype=str)
+    if "Rating" in st.session_state.rev_df.columns:
+        st.session_state.rev_df["Rating"] = pd.to_numeric(st.session_state.rev_df["Rating"], errors="coerce")
+    if "ID" in st.session_state.rev_df.columns:
+        st.session_state.rev_df["ID"] = pd.to_numeric(st.session_state.rev_df["ID"], errors="coerce")
 
 if "prog_df" not in st.session_state:
     load_data()
@@ -174,10 +209,22 @@ def save_all():
     st.session_state.users_df.to_csv(USER_FILE, index=False)
     st.session_state.rev_df.to_csv(REV_FILE, index=False)
 
+def format_phone_input(val):
+    if not val or pd.isna(val) or str(val).strip() == "" or str(val).strip() == "nan":
+        return "+40 "
+    clean = "".join(filter(str.isdigit, str(val)))
+    if clean.startswith("40"):
+        clean = clean[2:]
+    elif clean.startswith("0"):
+        clean = clean[1:]
+    return f"+40 {clean}".strip()
+
 def get_whatsapp_link(phone, text):
     clean_phone = "".join(filter(str.isdigit, str(phone)))
     if clean_phone.startswith("0"):
-        clean_phone = "+4" + clean_phone
+        clean_phone = "4" + clean_phone
+    elif not clean_phone.startswith("40") and len(clean_phone) == 9:
+        clean_phone = "40" + clean_phone
     encoded_text = urllib.parse.quote(text)
     return f"https://wa.me/{clean_phone}?text={encoded_text}"
 
@@ -186,7 +233,7 @@ def render_marquee_banner():
     if not rev_aprobate_banner.empty:
         marquee_items = ""
         for _, r_row in rev_aprobate_banner.iterrows():
-            stars = "⭐" * int(r_row['Rating'])
+            stars = "⭐" * int(float(r_row['Rating']) if pd.notna(r_row['Rating']) else 5)
             marquee_items += f"<span>{stars} <b>{r_row['Client']}</b> despre stilistul <b>{r_row['Stilist']}</b>: \"{r_row['Comentariu']}\"</span>"
         
         st.markdown(f"""
@@ -246,19 +293,29 @@ st.sidebar.markdown(f"Rol: <span class='role-tag'>{st.session_state.role}</span>
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
 if not is_admin:
-    st.sidebar.markdown("##### 👤 Profilul Meu")
+    st.sidebar.markdown("##### 👤 Profilul Meu & Telefon")
     user_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == current_user]
-    current_tel = str(user_row.iloc[0]["Telefon"]) if not user_row.empty and pd.notna(user_row.iloc[0]["Telefon"]) else ""
+    current_tel = format_phone_input(user_row.iloc[0]["Telefon"]) if not user_row.empty else "+40 "
     
     with st.sidebar.form("edit_client_phone_form"):
         st.text_input("Nume (Fix)", value=current_user, disabled=True)
-        new_phone_input = st.text_input("Număr Telefon", value=current_tel)
+        new_phone_input = st.text_input("Număr Telefon", value=current_tel, placeholder="+40 7xxxxxxxx")
         if st.form_submit_button("Salvează Telefonul"):
-            st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == current_user, "Telefon"] = new_phone_input
+            formatted_p = format_phone_input(new_phone_input)
+            st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == current_user, "Telefon"] = formatted_p
             save_all()
             st.sidebar.success("Telefon actualizat!")
             trigger_rerun()
     st.sidebar.markdown("---")
+
+wa_support_link = get_whatsapp_link("+40733000000", f"Salut, sunt {current_user} și doresc informații despre Denis Concept Salon.")
+st.sidebar.markdown(f"""
+<div style="text-align: center; margin-bottom: 15px;">
+    <a href="{wa_support_link}" target="_blank" class="whatsapp-btn" style="width: 100%; justify-content: center;">
+        💬 Contact Salon WhatsApp
+    </a>
+</div>
+""", unsafe_allow_html=True)
 
 if st.sidebar.button("🚪 Deconectare", use_container_width=True):
     st.session_state.logged_in = False
@@ -383,12 +440,21 @@ with tabs[0]:
 
         if not df_p.empty:
             def highlight_overlaps(row):
-                has_ov, _ = check_overlap(row["Stilist"], row["Dată"], row["Ora Start"], row.get("Durată", 30), exclude_id=row.get("ID"))
+                has_ov, _ = check_overlap(row["Stilist"], row["Dată"], row["Ora Start"], float(row["Durată"]) if pd.notna(row["Durată"]) else 30, exclude_id=row.get("ID"))
                 if has_ov or row["Status"] == "Anulat":
                     return ['background-color: rgba(127, 29, 29, 0.4); color: #fca5a5'] * len(row)
                 return [''] * len(row)
 
             st.dataframe(df_p.style.apply(highlight_overlaps, axis=1), use_container_width=True)
+            
+            st.markdown("##### 📱 Acțiuni Rapide WhatsApp pentru Programări")
+            selected_prog_wa_id = st.selectbox("Alege programarea pentru a contacta clientul", df_p["ID"].tolist(), format_func=lambda x: f"ID {x} - {df_p[df_p['ID']==x].iloc[0]['Client']} ({df_p[df_p['ID']==x].iloc[0]['Dată']} {df_p[df_p['ID']==x].iloc[0]['Ora Start']})")
+            if selected_prog_wa_id:
+                row_sel_wa = df_p[df_p["ID"] == selected_prog_wa_id].iloc[0]
+                cli_phone_wa = row_sel_wa["Telefon"]
+                wa_msg_admin = f"Salut {row_sel_wa['Client']}, te contactăm de la Denis Concept Salon în legătură cu programarea ta din data de {row_sel_wa['Dată']} la ora {row_sel_wa['Ora Start']}."
+                wa_link_admin = get_whatsapp_link(cli_phone_wa, wa_msg_admin)
+                st.markdown(f'<a href="{wa_link_admin}" target="_blank" class="whatsapp-btn">💬 Trimite WhatsApp către {row_sel_wa["Client"]}</a>', unsafe_allow_html=True)
         else:
             st.info("Nu există programări care să corespundă filtrelor selectate.")
 
@@ -410,7 +476,7 @@ with tabs[0]:
                 prog_options = {}
                 for _, r in viitoare.iterrows():
                     label = f"Data: {r['Dată']} | Ora: {r['Ora Start']} | Serviciu: {r['Serviciu']} | Stilist: {r['Stilist']}"
-                    prog_options[label] = r['ID']
+                    prog_options[label] = int(r['ID'])
                 
                 selected_label = st.selectbox("Alege programarea", list(prog_options.keys()))
                 id_selected = prog_options[selected_label]
@@ -432,17 +498,17 @@ with tabs[0]:
                             
                             st.markdown(f"""
                             <div class="overlap-alert">
-                                🛑 <b>POP-UP: Programarea ta (ID: {id_selected}) a fost anulată cu succes!</b>
+                                🛑 Programarea ta (ID: {id_selected}) a fost anulată cu succes!
                             </div>
                             """, unsafe_allow_html=True)
                             
                             stylist_user_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == stilist_alocat]
-                            stylist_phone = stylist_user_row.iloc[0]["Telefon"] if not stylist_user_row.empty and pd.notna(stylist_user_row.iloc[0]["Telefon"]) else "0700000000"
+                            stylist_phone = stylist_user_row.iloc[0]["Telefon"] if not stylist_user_row.empty else "+40700000000"
                             wa_msg = f"Salut {stilist_alocat}, clientul {current_user} a ANULAT programarea din data de {selected_row['Dată']} la ora {selected_row['Ora Start']}."
                             wa_link = get_whatsapp_link(stylist_phone, wa_msg)
                             
-                            st.markdown(f"🔔 Stilistul **{stilist_alocat}** a fost notificat în sistem.")
-                            st.markdown(f"[📱 Trimite notificare WhatsApp către stilist]({wa_link})", unsafe_allow_html=True)
+                            st.markdown(f"🔔 Stilistul **{stilist_alocat}** a fost notificat.")
+                            st.markdown(f'<a href="{wa_link}" target="_blank" class="whatsapp-btn">💬 Trimite notificare WhatsApp către stilistul {stilist_alocat}</a>', unsafe_allow_html=True)
                             trigger_rerun()
 
                 with tab_m2:
@@ -464,14 +530,14 @@ with tabs[0]:
                             st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Noul Serviciu"] = new_serv
                             save_all()
                             
-                            st.success("✅ Solicitarea de modificare a fost trimisă către stilist! Veți fi contactat după aprobare.")
+                            st.success("✅ Solicitarea de modificare a fost trimisă către stilist!")
                             
                             st_name = selected_row["Stilist"]
                             st_row_u = st.session_state.users_df[st.session_state.users_df["Utilizator"] == st_name]
-                            st_phone = st_row_u.iloc[0]["Telefon"] if not st_row_u.empty and pd.notna(st_row_u.iloc[0]["Telefon"]) else "0700000000"
-                            wa_mod_msg = f"Salut {st_name}, clientul {current_user} a solicitat MODIFICAREA programării (ID: {id_selected}) pentru data de {new_date} la ora {new_ora}. Te rugăm să verifici aplicația."
+                            st_phone = st_row_u.iloc[0]["Telefon"] if not st_row_u.empty else "+40700000000"
+                            wa_mod_msg = f"Salut {st_name}, clientul {current_user} a solicitat MODIFICAREA programării (ID: {id_selected}) pentru data de {new_date} la ora {new_ora}."
                             wa_mod_link = get_whatsapp_link(st_phone, wa_mod_msg)
-                            st.markdown(f"[📱 Trimite notificare WhatsApp către stilist]({wa_mod_link})", unsafe_allow_html=True)
+                            st.markdown(f'<a href="{wa_mod_link}" target="_blank" class="whatsapp-btn">💬 Anunță stilistul {st_name} pe WhatsApp</a>', unsafe_allow_html=True)
                             trigger_rerun()
             else:
                 st.info("Nu ai programări viitoare active pe care să le poți modifica sau anula.")
@@ -491,13 +557,13 @@ with tabs[1]:
             st.markdown(f'<div class="success-alert">{st.session_state["msg_status"]["text"]}</div>', unsafe_allow_html=True)
         del st.session_state["msg_status"]
 
-    default_tel = ""
+    default_tel = "+40 "
     default_stilist_idx = 0
     stilisti_disponibili = ["Adrian", "Andreea", "Alex", "Denis"]
 
     user_u_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == current_user]
     if not user_u_row.empty and pd.notna(user_u_row.iloc[0]["Telefon"]):
-        default_tel = str(user_u_row.iloc[0]["Telefon"])
+        default_tel = format_phone_input(user_u_row.iloc[0]["Telefon"])
 
     if not is_admin and not st.session_state.prog_df.empty:
         c_progs = st.session_state.prog_df[st.session_state.prog_df["Client"].str.contains(current_user, case=False, na=False)]
@@ -509,7 +575,7 @@ with tabs[1]:
     col_in1, col_in2 = st.columns(2)
     with col_in1:
         client_nume = st.text_input("👤 Nume Client", value=current_user if not is_admin else "", key="input_client_nuum")
-        client_tel = st.text_input("📞 Telefon Client", value=default_tel, placeholder="07xxxxxxxx", key="input_client_tel")
+        client_tel = st.text_input("📞 Telefon Client (Prefix +40 inclus)", value=default_tel, key="input_client_tel", placeholder="+40 7xxxxxxxx")
 
         p_data = st.date_input("📅 Dată Programare", value=date.today())
         p_stilist = st.selectbox("💈 Stilist / Barber", stilisti_disponibili, index=default_stilist_idx, key="prog_stilist")
@@ -527,8 +593,8 @@ with tabs[1]:
         
         for idx, s_row in serv_filtered.iterrows():
             s_name = s_row["Serviciu"]
-            s_pret = int(s_row["Preț"])
-            s_dur = int(s_row["Durată (min)"])
+            s_pret = int(float(s_row["Preț"]) if pd.notna(s_row["Preț"]) else 50)
+            s_dur = int(float(s_row["Durată (min)"]) if pd.notna(s_row["Durată (min)"]) else 30)
             if st.checkbox(f"{s_name} - {s_pret} RON ({s_dur} min)", key=f"srv_bifat_{p_stilist}_{idx}"):
                 selected_services.append(s_name)
                 total_pret += s_pret
@@ -568,7 +634,7 @@ with tabs[1]:
             p_ora = slot_map_admin[sel_slot_adm_label]
 
             if "🔴" in sel_slot_adm_label:
-                st.markdown('<div class="overlap-alert">⚠️ Ai selectat un slot ocupat! Se va crea o programare cu suprapunere (marcată cu roșu).</div>', unsafe_allow_html=True)
+                st.markdown('<div class="overlap-alert">⚠️ Ai selectat un slot ocupat! Se va crea o programare cu suprapunere.</div>', unsafe_allow_html=True)
         else:
             available_slots = []
             if total_durata > 0:
@@ -585,7 +651,7 @@ with tabs[1]:
             if not selected_services:
                 st.info("ℹ️ Te rugăm să bifezi cel puțin un serviciu pentru a vedea sloturile orare disponibile.")
             elif not available_slots:
-                st.warning("⚠️ Nu mai există sloturi disponibile pentru data și serviciile selectate la acest stilist. Alege altă dată!")
+                st.warning("⚠️ Nu mai există sloturi disponibile pentru data și serviciile selectate la acest stilist.")
             else:
                 p_ora = st.selectbox("⏰ Alege Slot Orar Disponibil", available_slots)
 
@@ -612,15 +678,16 @@ with tabs[1]:
             return
         
         servicii_str = ", ".join(selected_services)
-        new_id = int(st.session_state.prog_df["ID"].max() + 1) if not st.session_state.prog_df.empty and "ID" in st.session_state.prog_df.columns else 1
+        new_id = int(st.session_state.prog_df["ID"].max() + 1) if not st.session_state.prog_df.empty and "ID" in st.session_state.prog_df.columns and pd.notna(st.session_state.prog_df["ID"].max()) else 1
         
+        formatted_final_tel = format_phone_input(client_tel)
         new_row = pd.DataFrame([{
             "ID": new_id,
             "Dată": data_str,
             "Ora Start": p_ora,
             "Ora Sfârșit": ora_sfarsit,
             "Client": client_nume,
-            "Telefon": client_tel if client_tel else "Nespecificat",
+            "Telefon": formatted_final_tel,
             "Serviciu": servicii_str,
             "Stilist": p_stilist,
             "Preț": total_pret,
@@ -660,31 +727,31 @@ with tabs[1]:
                     col_ap1, col_ap2 = st.columns(2)
                     with col_ap1:
                         if st.button(f"✅ Aprobă Modificarea (ID {req_r['ID']})", key=f"app_mod_{req_r['ID']}"):
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == req_r['ID'], "Dată"] = req_r["Noua Dată"]
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == req_r['ID'], "Ora Start"] = req_r["Noua Ora"]
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == req_r['ID'], "Serviciu"] = req_r["Noul Serviciu"]
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == req_r['ID'], "Status Modificare"] = "Aprobat"
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == int(req_r['ID']), "Dată"] = req_r["Noua Dată"]
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == int(req_r['ID']), "Ora Start"] = req_r["Noua Ora"]
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == int(req_r['ID']), "Serviciu"] = req_r["Noul Serviciu"]
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == int(req_r['ID']), "Status Modificare"] = "Aprobat"
                             save_all()
                             st.success("Modificarea a fost aprobată cu succes!")
                             
                             cli_phone = req_r["Telefon"]
                             cli_wa_msg = f"Salut {req_r['Client']}, programarea ta la Denis Concept Salon a fost APROBATĂ pentru data de {req_r['Noua Dată']} la ora {req_r['Noua Ora']}."
                             cli_wa_link = get_whatsapp_link(cli_phone, cli_wa_msg)
-                            st.markdown(f"[📱 Trimite SMS/WhatsApp de confirmare către client]({cli_wa_link})", unsafe_allow_html=True)
+                            st.markdown(f'<a href="{cli_wa_link}" target="_blank" class="whatsapp-btn">💬 Trimite WhatsApp de confirmare către client</a>', unsafe_allow_html=True)
                             trigger_rerun()
                             
                     with col_ap2:
                         motiv_refuz = st.text_input(f"Motiv respingere (opțional) pentru ID {req_r['ID']}", key=f"motiv_ref_{req_r['ID']}")
                         if st.button(f"❌ Respinge Modificarea (ID {req_r['ID']})", key=f"rej_mod_{req_r['ID']}"):
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == req_r['ID'], "Status Modificare"] = "Respins"
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == req_r['ID'], "Motiv Refuz"] = motiv_refuz if motiv_refuz else "Fără motiv specificat"
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == int(req_r['ID']), "Status Modificare"] = "Respins"
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == int(req_r['ID']), "Motiv Refuz"] = motiv_refuz if motiv_refuz else "Fără motiv specificat"
                             save_all()
                             st.warning("Modificarea a fost respinsă.")
                             
                             cli_phone = req_r["Telefon"]
-                            cli_wa_msg = f"Salut {req_r['Client']}, solicitarea ta de modificare a fost respinsă de stilist. Motiv: {motiv_refuz if motiv_refuz else 'Nespecificat'}."
+                            cli_wa_msg = f"Salut {req_r['Client']}, solicitarea ta de modificare a fost respinsă. Motiv: {motiv_refuz if motiv_refuz else 'Nespecificat'}."
                             cli_wa_link = get_whatsapp_link(cli_phone, cli_wa_msg)
-                            st.markdown(f"[📱 Trimite SMS/WhatsApp de informare către client]({cli_wa_link})", unsafe_allow_html=True)
+                            st.markdown(f'<a href="{cli_wa_link}" target="_blank" class="whatsapp-btn">💬 Trimite WhatsApp de informare către client</a>', unsafe_allow_html=True)
                             trigger_rerun()
             st.markdown("---")
 
@@ -706,7 +773,7 @@ with tabs[1]:
                 prog_mgmt_options = {}
                 for _, r in filtered_mgmt_progs.iterrows():
                     label = f"⏰ {r['Ora Start']} - {r['Ora Sfârșit']} | Client: {r['Client']} | Serviciu: {r['Serviciu']} | Stilist: {r['Stilist']} | Status: {r['Status']}"
-                    prog_mgmt_options[label] = r['ID']
+                    prog_mgmt_options[label] = int(r['ID'])
                 
                 sel_mg_label = st.selectbox("Alege Programarea din Intervalul Orar", list(prog_mgmt_options.keys()))
                 sel_mg_id = prog_mgmt_options[sel_mg_label]
@@ -716,13 +783,13 @@ with tabs[1]:
                     st.markdown("##### 📝 Editează Detaliile Programării Selectate")
                     with st.form(f"quick_mod_prog_form_{sel_mg_id}"):
                         q_client = st.text_input("Nume Client", value=curr_mgmt_row["Client"])
-                        q_tel = st.text_input("Telefon", value=curr_mgmt_row["Telefon"])
+                        q_tel = st.text_input("Telefon", value=format_phone_input(curr_mgmt_row["Telefon"]))
                         q_data = st.date_input("Dată", value=datetime.strptime(curr_mgmt_row["Dată"], "%Y-%m-%d").date())
                         q_ora = st.text_input("Ora Start (HH:MM)", value=curr_mgmt_row["Ora Start"])
                         q_stilist = st.selectbox("Stilist", stilisti_disponibili, index=stilisti_disponibili.index(curr_mgmt_row["Stilist"]) if curr_mgmt_row["Stilist"] in stilisti_disponibili else 0)
                         q_serviciu = st.text_input("Serviciu", value=curr_mgmt_row["Serviciu"])
-                        q_pret = st.number_input("Preț (RON)", value=int(curr_mgmt_row["Preț"]))
-                        q_durata = st.number_input("Durată (min)", value=int(curr_mgmt_row["Durată"]))
+                        q_pret = st.number_input("Preț (RON)", value=int(float(curr_mgmt_row["Preț"]) if pd.notna(curr_mgmt_row["Preț"]) else 50))
+                        q_durata = st.number_input("Durată (min)", value=int(float(curr_mgmt_row["Durată"]) if pd.notna(curr_mgmt_row["Durată"]) else 30))
                         q_status = st.selectbox("Status", ["Confirmat", "Efectuat", "Anulat"], index=["Confirmat", "Efectuat", "Anulat"].index(curr_mgmt_row["Status"]) if curr_mgmt_row["Status"] in ["Confirmat", "Efectuat", "Anulat"] else 0)
                         q_obs = st.text_area("Observații", value=str(curr_mgmt_row["Observații"]) if pd.notna(curr_mgmt_row["Observații"]) else "")
                         
@@ -738,9 +805,18 @@ with tabs[1]:
                             except:
                                 q_ora_sf = curr_mgmt_row["Ora Sfârșit"]
 
-                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, ["Dată", "Ora Start", "Ora Sfârșit", "Client", "Telefon", "Serviciu", "Stilist", "Preț", "Durată", "Status", "Observații"]] = [
-                                q_data.strftime("%Y-%m-%d"), q_ora, q_ora_sf, q_client, q_tel, q_serviciu, q_stilist, q_pret, q_durata, q_status, q_obs
-                            ]
+                            formatted_q_tel = format_phone_input(q_tel)
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Dată"] = q_data.strftime("%Y-%m-%d")
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Ora Start"] = q_ora
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Ora Sfârșit"] = q_ora_sf
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Client"] = q_client
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Telefon"] = formatted_q_tel
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Serviciu"] = q_serviciu
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Stilist"] = q_stilist
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Preț"] = q_pret
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Durată"] = q_durata
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Status"] = q_status
+                            st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == sel_mg_id, "Observații"] = q_obs
                             save_all()
                             st.success("Programarea a fost actualizată cu succes!")
                             trigger_rerun()
@@ -804,10 +880,13 @@ if is_admin:
                 with st.form("edit_serv_form"):
                     e_nume = st.text_input("Nume nou", value=s_curr["Serviciu"])
                     e_stilist = st.selectbox("Stilist", ["Adrian", "Andreea", "Alex", "Denis"], index=["Adrian", "Andreea", "Alex", "Denis"].index(s_curr["Stilist"]) if s_curr["Stilist"] in ["Adrian", "Andreea", "Alex", "Denis"] else 0)
-                    e_pret = st.number_input("Preț nou (RON)", min_value=0, value=int(s_curr["Preț"]))
-                    e_durata = st.number_input("Durată nouă (min)", min_value=5, value=int(s_curr["Durată (min)"]))
+                    e_pret = st.number_input("Preț nou (RON)", min_value=0, value=int(float(s_curr["Preț"]) if pd.notna(s_curr["Preț"]) else 50))
+                    e_durata = st.number_input("Durată nouă (min)", min_value=5, value=int(float(s_curr["Durată (min)"]) if pd.notna(s_curr["Durată (min)"]) else 30))
                     if st.form_submit_button("Salvează Modificări"):
-                        st.session_state.serv_df.loc[st.session_state.serv_df["Serviciu"] == edit_target, ["Serviciu", "Stilist", "Preț", "Durată (min)"]] = [e_nume, e_stilist, e_pret, e_durata]
+                        st.session_state.serv_df.loc[st.session_state.serv_df["Serviciu"] == edit_target, "Serviciu"] = e_nume
+                        st.session_state.serv_df.loc[st.session_state.serv_df["Serviciu"] == edit_target, "Stilist"] = e_stilist
+                        st.session_state.serv_df.loc[st.session_state.serv_df["Serviciu"] == edit_target, "Preț"] = e_pret
+                        st.session_state.serv_df.loc[st.session_state.serv_df["Serviciu"] == edit_target, "Durată (min)"] = e_durata
                         save_all()
                         st.success("Serviciu actualizat!")
                         trigger_rerun()
@@ -828,8 +907,8 @@ if is_admin:
         if not rev_df.empty:
             rev_options = {}
             for _, r in rev_df.iterrows():
-                label = f"Client: {r['Client']} | Stilist: {r['Stilist']} | Rating: {r['Rating']}⭐ | Comentariu: {r['Comentariu'][:35]}..."
-                rev_options[label] = r['ID']
+                label = f"Client: {r['Client']} | Stilist: {r['Stilist']} | Rating: {r['Rating']}⭐ | Comentariu: {str(r['Comentariu'])[:35]}..."
+                rev_options[label] = int(r['ID']) if pd.notna(r['ID']) else 0
 
             sel_rev_label = st.selectbox("Selectează Recenzia", list(rev_options.keys()))
             sel_rev_id = rev_options[sel_rev_label]
@@ -908,14 +987,15 @@ if is_admin:
                 n_user = st.text_input("Nume Utilizator Nou")
                 n_pass = st.text_input("Parolă", type="password")
                 n_rol = st.selectbox("Rol", ["Administrator", "Client"])
-                n_tel = st.text_input("Telefon contact")
+                n_tel = st.text_input("Telefon contact", value="+40 ", placeholder="+40 7xxxxxxxx")
                 
                 if st.form_submit_button("Adaugă Utilizator"):
                     if n_user and n_pass:
                         if n_user in st.session_state.users_df["Utilizator"].values:
                             st.error("Utilizatorul există deja!")
                         else:
-                            new_u = pd.DataFrame([{"Utilizator": n_user, "Parolă": n_pass, "Rol": n_rol, "Telefon": n_tel}])
+                            formatted_new_tel = format_phone_input(n_tel)
+                            new_u = pd.DataFrame([{"Utilizator": n_user, "Parolă": n_pass, "Rol": n_rol, "Telefon": formatted_new_tel}])
                             st.session_state.users_df = pd.concat([st.session_state.users_df, new_u], ignore_index=True)
                             save_all()
                             st.success(f"Utilizatorul {n_user} a fost adăugat!")
@@ -925,7 +1005,7 @@ if is_admin:
             with st.form("edit_existing_user_form"):
                 e_pass = st.text_input("Parolă", value=u_row["Parolă"], type="password")
                 e_rol = st.selectbox("Rol", ["Administrator", "Client"], index=0 if u_row["Rol"] == "Administrator" else 1)
-                e_tel = st.text_input("Telefon contact", value=str(u_row["Telefon"]) if pd.notna(u_row["Telefon"]) else "")
+                e_tel = st.text_input("Telefon contact", value=format_phone_input(u_row["Telefon"]))
                 
                 col_u_btn1, col_u_btn2 = st.columns(2)
                 with col_u_btn1:
@@ -934,7 +1014,11 @@ if is_admin:
                     del_mod = st.form_submit_button("Șterge Utilizatorul")
                 
                 if save_mod:
-                    st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, ["Parolă", "Rol", "Telefon"]] = [e_pass, e_rol, e_tel]
+                    formatted_edited_tel = format_phone_input(e_tel)
+                    # Corecție eroare Pandas prin atribuire separată pe coloane
+                    st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Parolă"] = e_pass
+                    st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Rol"] = e_rol
+                    st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Telefon"] = formatted_edited_tel
                     save_all()
                     st.success(f"Utilizatorul {sel_user_mgmt} a fost actualizat!")
                     trigger_rerun()
@@ -957,7 +1041,7 @@ else:
         if not aprobate.empty:
             for idx, row in aprobate.iterrows():
                 with st.container(border=True):
-                    st.markdown(f"**👤 {row['Client']}** | Stilist: *{row['Stilist']}* | Rating: {'⭐' * int(row['Rating'])}")
+                    st.markdown(f"**👤 {row['Client']}** | Stilist: *{row['Stilist']}* | Rating: {'⭐' * int(float(row['Rating']) if pd.notna(row['Rating']) else 5)}")
                     st.markdown(f"> *{row['Comentariu']}*")
         else:
             st.info("Nu există recenzii aprobate momentan.")
@@ -969,10 +1053,10 @@ else:
         if not my_reviews.empty:
             for _, rev_row in my_reviews.iterrows():
                 with st.container(border=True):
-                    st.markdown(f"**Stilist:** {rev_row['Stilist']} | **Rating:** {'⭐' * int(rev_row['Rating'])} | **Status:** {rev_row['Status']}")
+                    st.markdown(f"**Stilist:** {rev_row['Stilist']} | **Rating:** {'⭐' * int(float(rev_row['Rating']) if pd.notna(rev_row['Rating']) else 5)} | **Status:** {rev_row['Status']}")
                     st.markdown(f"Comentariu: *{rev_row['Comentariu']}*")
                     if st.button("🗑️ Șterge Această Recenzie", key=f"del_my_rev_{rev_row['ID']}"):
-                        st.session_state.rev_df = st.session_state.rev_df[st.session_state.rev_df["ID"] != rev_row['ID']]
+                        st.session_state.rev_df = st.session_state.rev_df[st.session_state.rev_df["ID"] != int(rev_row['ID'])]
                         save_all()
                         st.success("Recenzia ta a fost ștersă.")
                         trigger_rerun()
@@ -987,7 +1071,7 @@ else:
             r_comentariu = st.text_area("Scrie experiența ta...")
             if st.form_submit_button("Trimite Recenzia"):
                 if r_comentariu:
-                    new_rev_id = int(st.session_state.rev_df["ID"].max() + 1) if not st.session_state.rev_df.empty and "ID" in st.session_state.rev_df.empty else 1
+                    new_rev_id = int(st.session_state.rev_df["ID"].max() + 1) if not st.session_state.rev_df.empty and "ID" in st.session_state.rev_df.columns and pd.notna(st.session_state.rev_df["ID"].max()) else 1
                     new_r = pd.DataFrame([{
                         "ID": new_rev_id,
                         "Client": current_user,
