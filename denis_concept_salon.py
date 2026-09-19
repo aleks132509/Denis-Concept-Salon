@@ -19,14 +19,14 @@ st.set_page_config(
 )
 
 def apply_background_style(is_logged_in):
-    # Fundal inspirat din stilul industrial-luxos al salonului din poză (pereți întunecați, cărămidă, lemn cald)
+    # Fundal mult mai clar și definit (opacitate redusă a stratului întunecat pentru claritate maximă)
     salon_bg_url = "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1920&q=80"
     
     css_template = """
     <style>
     .stApp {
-        background: linear-gradient(135deg, rgba(15, 17, 23, 0.92) 0%, rgba(22, 26, 34, 0.95) 100%),
-                    radial-gradient(circle at 50% 35%, rgba(212, 175, 55, 0.25) 0%, transparent 75%),
+        background: linear-gradient(135deg, rgba(15, 17, 23, 0.70) 0%, rgba(22, 26, 34, 0.78) 100%),
+                    radial-gradient(circle at 50% 35%, rgba(212, 175, 55, 0.20) 0%, transparent 75%),
                     url('REPLACE_URL') !important;
         background-size: cover !important;
         background-position: center !important;
@@ -59,8 +59,8 @@ st.markdown(
     .info-alert { background-color: rgba(30, 58, 138, 0.85); color: #93c5fd; padding: 14px; border-radius: 10px; border: 1px solid #3b82f6; font-weight: 600; margin-bottom: 12px;}
     .highlight-box { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 14px; border: 2px solid #e5c158; margin-bottom: 18px; box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4); }
     
-    /* STILIZARE IMPECABILĂ PENTRU MULTISELECT / TAGS (AURIU & ANTRACIT) */
-    span[data-baseweb="tag"] {
+    /* STILIZARE IMPECABILĂ PENTRU TAG-URILE DIN ST.MULTISELECT (GRADIENT AURIU & TEXT ÎNCHIS) */
+    .stMultiSelect [data-baseweb="tag"] {
         background: linear-gradient(135deg, #e5c158 0%, #c5a059 100%) !important;
         color: #090a0f !important;
         border-radius: 6px !important;
@@ -68,13 +68,13 @@ st.markdown(
         border: 1px solid #d4af37 !important;
         box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3) !important;
     }
-    span[data-baseweb="tag"] span {
+    .stMultiSelect [data-baseweb="tag"] span {
         color: #090a0f !important;
     }
-    span[data-baseweb="tag"] svg {
+    .stMultiSelect [data-baseweb="tag"] svg {
         fill: #090a0f !important;
     }
-    span[data-baseweb="tag"] svg:hover {
+    .stMultiSelect [data-baseweb="tag"] svg:hover {
         opacity: 0.7;
     }
 
@@ -430,12 +430,21 @@ def render_marquee_banner():
         """, unsafe_allow_html=True)
 
 # ==========================================
-# SESIUNE & AUTENTIFICARE
+# SESIUNE, PERSISTENȚĂ & AUTENTIFICARE
 # ==========================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user = None
     st.session_state.role = None
+
+# Verificare automată sesie persistentă (pentru "Ține-mă minte" sau roluri Admin/Stilist)
+if not st.session_state.logged_in:
+    saved_user = st.query_params.get("logged_user")
+    saved_role = st.query_params.get("role")
+    if saved_user and saved_role:
+        st.session_state.logged_in = True
+        st.session_state.user = saved_user
+        st.session_state.role = saved_role
 
 apply_background_style(st.session_state.logged_in)
 
@@ -451,15 +460,23 @@ if not st.session_state.logged_in:
         with st.form("login_form_streamlit"):
             u_input = st.text_input("👤 Utilizator / Nume", placeholder="ex: Alex, Ionuț, Adrian")
             p_input = st.text_input("🔑 Parolă", type="password")
+            remember_me = st.checkbox("Ține-mă minte (Rămâi conectat)")
             
             submit_login = st.form_submit_button("✨ Intră în Cont", use_container_width=True)
             if submit_login:
                 users = st.session_state.users_df
                 match = users[(users["Utilizator"] == u_input) & (users["Parolă"] == p_input)]
                 if not match.empty:
+                    role_val = match.iloc[0]["Rol"]
                     st.session_state.logged_in = True
                     st.session_state.user = u_input
-                    st.session_state.role = match.iloc[0]["Rol"]
+                    st.session_state.role = role_val
+                    
+                    # Dacă e bifat "Ține-mă minte" SAU dacă este Administrator/Stilist, salvăm permanent sesiunea
+                    if remember_me or role_val in ["Administrator", "Stilist"]:
+                        st.query_params["logged_user"] = u_input
+                        st.query_params["role"] = role_val
+                        
                     st.toast("Autentificare reușită! Bine ai venit.", icon="✨")
                     trigger_rerun()
                 else:
@@ -557,6 +574,8 @@ if st.sidebar.button("🚪 Deconectare", use_container_width=True):
     st.session_state.logged_in = False
     st.session_state.user = None
     st.session_state.role = None
+    # Ștergem parametrii persistenți la deconectare manuală
+    st.query_params.clear()
     trigger_rerun()
 
 st.sidebar.markdown("---")
@@ -910,10 +929,11 @@ with tabs[1]:
         with col_f1:
             view_mode = st.selectbox("Vizualizare Perioadă", ["Toate", "Azi", "Mâine", "Săptămâna aceasta", "Săptămâna viitoare", "Luna aceasta", "Programări Viitoare", "Programări Trecute"])
         with col_f2:
-            # RESTAURAT: MULTISELECT DROP-DOWN CLASIC CU ELEGANTUL STIL DE LUX
-            fil_stilist = st.multiselect("Alege Stilist", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili)
+            # FILTRU MULTISELECT DROP-DOWN CLASIC CU DESIGN DE LUX
+            fil_stilist = st.multiselect("Alege Stilist", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, key="admin_fil_stilist_ms")
         with col_f3:
-            fil_status = st.multiselect("Alege Status Programare", options=["Confirmat", "În Așteptare"], default=["Confirmat", "În Așteptare"])
+            # FILTRU MULTISELECT DROP-DOWN CLASIC CU DESIGN DE LUX
+            fil_status = st.multiselect("Alege Status Programare", options=["Confirmat", "În Așteptare"], default=["Confirmat", "În Așteptare"], key="admin_fil_status_ms")
 
         today = date.today()
         if not df_p.empty:
@@ -1289,8 +1309,8 @@ if is_admin_or_stylist:
         st.markdown("### 💇‍♂️ Gestiune & Catalog Servicii în funcție de Stilist")
         df_serv = st.session_state.serv_df.copy()
         
-        # RESTAURAT: MULTISELECT DROP-DOWN CLASIC PENTRU CATALOG
-        sel_serv_filter = st.multiselect("Alege Stilist pentru Catalog", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili)
+        # FILTRU MULTISELECT DROP-DOWN CLASIC PENTRU CATALOG
+        sel_serv_filter = st.multiselect("Alege Stilist pentru Catalog", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, key="serv_stilist_multiselect")
         
         if sel_serv_filter:
             df_serv_filtered = df_serv[df_serv["Stilist"].isin(sel_serv_filter)]
@@ -1354,7 +1374,7 @@ if is_admin_or_stylist:
         st.markdown("### ⭐ Moderare Recenzii & Istoric Complet")
         rev_df = st.session_state.rev_df.copy()
         
-        # RESTAURAT: MULTISELECT DROP-DOWN CLASIC PENTRU RECENZII
+        # FILTRU MULTISELECT DROP-DOWN CLASIC PENTRU RECENZII
         sel_rev_stilist = st.multiselect("Alege Stilist pentru Recenzii", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, key="rev_stilist_multiselect")
         
         if sel_rev_stilist:
