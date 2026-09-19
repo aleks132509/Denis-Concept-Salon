@@ -39,7 +39,7 @@ st.markdown(
     .success-alert { background-color: rgba(6, 78, 59, 0.95); color: #6ee7b7; padding: 14px; border-radius: 10px; border: 1px solid #10b981; font-weight: 600; margin-bottom: 12px;}
     .info-alert { background-color: rgba(30, 58, 138, 0.85); color: #93c5fd; padding: 14px; border-radius: 10px; border: 1px solid #3b82f6; font-weight: 600; margin-bottom: 12px;}
     
-    /* Stil Banner Rulant Recenzii (Viteză echilibrată) */
+    /* Stil Banner Rulant Recenzii (Pornire instantanee fără click) */
     .marquee-container {
         overflow: hidden;
         white-space: nowrap;
@@ -53,9 +53,14 @@ st.markdown(
     .marquee-content {
         display: inline-block;
         animation: marquee 25s linear infinite;
+        -webkit-animation: marquee 25s linear infinite;
+        animation-play-state: running !important;
+        -webkit-animation-play-state: running !important;
         color: #f3f4f6;
         font-size: 14px;
         font-weight: 500;
+        will-change: transform;
+        transform: translateZ(0);
     }
     .marquee-content span {
         margin-right: 60px;
@@ -64,6 +69,10 @@ st.markdown(
     @keyframes marquee {
         0% { transform: translateX(100%); }
         100% { transform: translateX(-100%); }
+    }
+    @-webkit-keyframes marquee {
+        0% { -webkit-transform: translateX(100%); }
+        100% { -webkit-transform: translateX(-100%); }
     }
 
     .stButton>button {
@@ -111,7 +120,6 @@ def init_csvs():
         ])
         df_p.to_csv(PROG_FILE, index=False)
     else:
-        # Asigură compatibilitatea coloanelor noi
         df_p = pd.read_csv(PROG_FILE)
         cols_needed = {"Status Modificare": "Niciuna", "Noua Dată": "", "Noua Ora": "", "Noul Serviciu": "", "Motiv Refuz": ""}
         for col, default_val in cols_needed.items():
@@ -265,7 +273,6 @@ st.sidebar.markdown("---")
 # ==========================================
 if is_admin:
     df_prog_all = st.session_state.prog_df
-    # Filtrare cereri în așteptare sau anulate recent pentru stilistul curent sau toți dacă e Denis/Alex
     pending_modifs = df_prog_all[df_prog_all["Status Modificare"] == "În Așteptare"]
     if not pending_modifs.empty:
         st.markdown(f"""
@@ -423,14 +430,12 @@ with tabs[0]:
                             st.session_state.prog_df.loc[st.session_state.prog_df["ID"] == id_selected, "Status"] = "Anulat"
                             save_all()
                             
-                            # POP-UP / ALERTĂ CONFIRMARE ANULARE CLIENT
                             st.markdown(f"""
                             <div class="overlap-alert">
                                 🛑 <b>POP-UP: Programarea ta (ID: {id_selected}) a fost anulată cu succes!</b>
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            # Generare link WhatsApp pentru stilist
                             stylist_user_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == stilist_alocat]
                             stylist_phone = stylist_user_row.iloc[0]["Telefon"] if not stylist_user_row.empty and pd.notna(stylist_user_row.iloc[0]["Telefon"]) else "0700000000"
                             wa_msg = f"Salut {stilist_alocat}, clientul {current_user} a ANULAT programarea din data de {selected_row['Dată']} la ora {selected_row['Ora Start']}."
@@ -461,7 +466,6 @@ with tabs[0]:
                             
                             st.success("✅ Solicitarea de modificare a fost trimisă către stilist! Veți fi contactat după aprobare.")
                             
-                            # Notificare WhatsApp către stilist
                             st_name = selected_row["Stilist"]
                             st_row_u = st.session_state.users_df[st.session_state.users_df["Utilizator"] == st_name]
                             st_phone = st_row_u.iloc[0]["Telefon"] if not st_row_u.empty and pd.notna(st_row_u.iloc[0]["Telefon"]) else "0700000000"
@@ -643,7 +647,6 @@ with tabs[1]:
         st.markdown("---")
         st.markdown("### ⚙️ Gestiune & Aprobare Modificări / Programări")
         
-        # Secțiune dedicată cererilor în așteptare pentru stilist
         df_all_mgmt = st.session_state.prog_df.copy()
         pending_requests = df_all_mgmt[df_all_mgmt["Status Modificare"] == "În Așteptare"]
         
@@ -664,7 +667,6 @@ with tabs[1]:
                             save_all()
                             st.success("Modificarea a fost aprobată cu succes!")
                             
-                            # Trimite notificare WhatsApp clientului
                             cli_phone = req_r["Telefon"]
                             cli_wa_msg = f"Salut {req_r['Client']}, programarea ta la Denis Concept Salon a fost APROBATĂ pentru data de {req_r['Noua Dată']} la ora {req_r['Noua Ora']}."
                             cli_wa_link = get_whatsapp_link(cli_phone, cli_wa_msg)
