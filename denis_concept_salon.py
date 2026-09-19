@@ -153,7 +153,7 @@ def trigger_rerun():
         st.experimental_rerun()
 
 # ==========================================
-# GESTIUNE SIGURĂ FIȘIERE CSV (ELIMINĂ EMPTYDATAERROR)
+# GESTIUNE SIGURĂ FIȘIERE CSV (FĂRĂ EMPTYDATAERROR)
 # ==========================================
 PROG_FILE = "programari_denis_concept.csv"
 SERV_FILE = "servicii_denis_concept.csv"
@@ -216,8 +216,6 @@ def load_data():
     for col in ["Nr. Programare", "Preț", "Durată"]:
         if col in st.session_state.prog_df.columns:
             st.session_state.prog_df[col] = pd.to_numeric(st.session_state.prog_df[col], errors="coerce")
-    if "Status Modificare" in st.session_state.prog_df.columns:
-        st.session_state.prog_df["Status Modificare"] = st.session_state.prog_df["Status Modificare"].replace(["Niciuna", "nan", "NaN"], "")
 
     st.session_state.serv_df = safe_load_csv(SERV_FILE, df_s_def)
     for col in ["Preț", "Durată (min)"]:
@@ -231,8 +229,6 @@ def load_data():
     st.session_state.rev_df = safe_load_csv(REV_FILE, df_r_def)
     if "Rating" in st.session_state.rev_df.columns:
         st.session_state.rev_df["Rating"] = pd.to_numeric(st.session_state.rev_df["Rating"], errors="coerce")
-    if "ID" in st.session_state.rev_df.columns:
-        st.session_state.rev_df["ID"] = pd.to_numeric(st.session_state.rev_df["ID"], errors="coerce")
 
 if "prog_df" not in st.session_state:
     load_data()
@@ -256,39 +252,6 @@ def format_phone_input(val):
         clean = clean[1:]
     return f"+40 {clean}".strip()
 
-def get_whatsapp_link(phone, text):
-    clean_phone = "".join(filter(str.isdigit, str(phone)))
-    if clean_phone.startswith("0"):
-        clean_phone = "4" + clean_phone
-    elif not clean_phone.startswith("40") and len(clean_phone) == 9:
-        clean_phone = "40" + clean_phone
-    return f"https://wa.me/{clean_phone}?text={urllib.parse.quote(text)}"
-
-def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_nr=None):
-    try:
-        t_start = datetime.strptime(ora_start_str, "%H:%M").time()
-        start_dt = datetime.combine(datetime.strptime(data_str, "%Y-%m-%d"), t_start)
-        end_dt = start_dt + timedelta(minutes=int(durata_min))
-    except:
-        return False, []
-
-    df = st.session_state.prog_df
-    conflicts = []
-    for _, row in df.iterrows():
-        if exclude_nr is not None and str(row.get("Nr. Programare")) == str(exclude_nr):
-            continue
-        if row["Stilist"] == stilist and row["Dată"] == data_str and row["Status"] != "Anulat":
-            try:
-                ex_start = datetime.strptime(row["Ora Start"], "%H:%M").time()
-                ex_end = datetime.strptime(row["Ora Sfârșit"], "%H:%M").time()
-                ex_s_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_start)
-                ex_e_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_end)
-                if start_dt < ex_e_dt and end_dt > ex_s_dt:
-                    conflicts.append(row)
-            except:
-                pass
-    return len(conflicts) > 0, conflicts
-
 RO_DAYS = {0: "Luni", 1: "Marți", 2: "Miercuri", 3: "Joi", 4: "Vineri", 5: "Sâmbătă", 6: "Duminică"}
 RO_MONTHS = {1: "Ianuarie", 2: "Februarie", 3: "Martie", 4: "Aprilie", 5: "Mai", 6: "Iunie", 7: "Iulie", 8: "August", 9: "Septembrie", 10: "Octombrie", 11: "Noiembrie", 12: "Decembrie"}
 
@@ -306,25 +269,25 @@ def render_lux_table(df):
         return "<div style='text-align: center; padding: 25px; color: #9ca3af; background: #131722; border-radius: 12px; border: 1px solid rgba(212, 175, 55, 0.2);'>Nu există înregistrări.</div>"
     
     df_render = df.copy()
-    for drop_col in ["Nr. Programare", "ID"]:
+    # Ascundem coloanele interne inutile din tabel, păstrându-l curat ca data trecută
+    cols_to_drop = ["Nr. Programare", "ID", "Status Modificare", "Noua Dată", "Noua Ora", "Noul Serviciu", "Motiv Refuz"]
+    for drop_col in cols_to_drop:
         if drop_col in df_render.columns:
             df_render = df_render.drop(columns=[drop_col])
+            
     if "Dată" in df_render.columns:
         df_render["Dată"] = df_render["Dată"].apply(format_ro_date)
 
     html = "<div style='overflow-x: auto; margin-bottom: 20px;'><table style='width: 100%; border-collapse: collapse; background: #131722; border-radius: 14px; overflow: hidden; border: 1px solid rgba(212, 175, 55, 0.3); font-size: 13px;'>"
     html += "<thead><tr style='background: #1a202c; color: #e5c158; text-transform: uppercase; font-size: 11px;'>"
     for col in df_render.columns:
-        if col != "Status Modificare":
-            html += f"<th style='padding: 14px; text-align: center;'>{col}</th>"
+        html += f"<th style='padding: 14px; text-align: center;'>{col}</th>"
     html += "</tr></thead><tbody>"
     
     for idx, row in df_render.iterrows():
         row_bg = "#131722" if idx % 2 == 0 else "#181d29"
         html += f"<tr style='background-color: {row_bg}; border-bottom: 1px solid rgba(255, 255, 255, 0.05);'>"
         for col in df_render.columns:
-            if col == "Status Modificare":
-                continue
             val = str(row[col])
             if val in ["nan", "NaN", "None"]: val = ""
             html += f"<td style='padding: 12px; text-align: center; color: #f3f4f6;'>{val}</td>"
@@ -379,7 +342,7 @@ current_user = st.session_state.user
 render_marquee_banner()
 
 # ==========================================
-# MENIU PRINCIPAL PE ECRAN (MOBILE FIRST)
+# MENIU PRINCIPAL PE ECRAN (MOBIL - NUMIT "MENIU")
 # ==========================================
 if is_admin:
     nav_options = ["🏠 Acasă / Dashboard", "➕ Adaugă Programare", "📅 Programările mele", "⚙️ Gestiune & Aprobări", "💇‍♂️ Servicii & Prețuri", "⭐ Recenzii", "📊 Raport Financiar", "⚙️ Setări & Utilizatori"]
@@ -407,15 +370,15 @@ if st.sidebar.button("🚪 Deconectare", use_container_width=True):
     st.session_state.role = None
     trigger_rerun()
 
-# SELECTOR SUS PE ECRAN (Fără să fie nevoie de meniul lateral pe telefon)
+# SELECTOR SUS PE ECRAN (NUMIT EXACT "Meniu")
 st.markdown("""
 <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(212, 175, 55, 0.4); margin-bottom: 15px;">
-    <span style="color: #e5c158; font-weight: 700; font-size: 13px;">📱 Meniu Rapid Salon</span>
+    <span style="color: #e5c158; font-weight: 700; font-size: 13px;">📱 Meniu Principal Salon</span>
 </div>
 """, unsafe_allow_html=True)
 
 current_index = nav_options.index(st.session_state.selected_nav) if st.session_state.selected_nav in nav_options else 0
-selected_page = st.selectbox("Navigare Secțiune", nav_options, index=current_index, key="main_screen_select")
+selected_page = st.selectbox("Meniu", nav_options, index=current_index, key="main_screen_select")
 
 if selected_page != st.session_state.selected_nav:
     st.session_state.selected_nav = selected_page
@@ -429,7 +392,7 @@ default_stylist_idx = stilisti_disponibili.index(current_user) if current_user i
 # ==========================================
 if selected_page == "🏠 Acasă / Dashboard":
     st.markdown(f"### ✨ Bun venit la Denis Concept Salon, **{current_user}**!")
-    st.markdown("<p style='color: #9ca3af;'>Folosește meniul rapid de sus pentru a accesa secțiunile dorite instantaneu.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #9ca3af;'>Folosește meniul de mai sus pentru a accesa secțiunile dorite instantaneu.</p>", unsafe_allow_html=True)
     
     col_h1, col_h2, col_h3 = st.columns(3)
     with col_h1:
