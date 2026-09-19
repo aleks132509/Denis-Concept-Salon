@@ -19,41 +19,25 @@ st.set_page_config(
 )
 
 def apply_background_style(is_logged_in):
-    if not is_logged_in:
-        st.markdown(
-            """
-            <style>
-            .stApp {
-                background: linear-gradient(135deg, rgba(18, 20, 26, 0.88) 0%, rgba(28, 32, 42, 0.92) 100%),
-                            radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.3) 0%, transparent 75%),
-                            url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1920&q=80') !important;
-                background-size: cover !important;
-                background-position: center !important;
-                background-attachment: fixed !important;
-                color: #f3f4f6 !important;
-                font-family: 'Helvetica Neue', sans-serif;
-            }
-            </style>
-        """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            """
-            <style>
-            .stApp {
-                background: linear-gradient(rgba(9, 11, 16, 0.90), rgba(15, 19, 28, 0.93)), 
-                            url('https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1920&q=80') !important;
-                background-size: cover !important;
-                background-position: center !important;
-                background-attachment: fixed !important;
-                color: #f3f4f6 !important;
-                font-family: 'Helvetica Neue', sans-serif;
-            }
-            </style>
-        """,
-            unsafe_allow_html=True,
-        )
+    # Fundal spectaculos de salon cu elemente de coafură/foarfece și tonuri de gri antracit & auriu
+    salon_bg_url = "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1920&q=80"
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background: linear-gradient(135deg, rgba(15, 17, 23, 0.91) 0%, rgba(25, 29, 38, 0.94) 100%),
+                        radial-gradient(circle at 50% 35%, rgba(212, 175, 55, 0.28) 0%, transparent 75%),
+                        url('{salon_bg_url}') !important;
+            background-size: cover !important;
+            background-position: center !important;
+            background-attachment: fixed !important;
+            color: #f3f4f6 !important;
+            font-family: 'Helvetica Neue', sans-serif;
+        }
+        </style>
+    """,
+        unsafe_allow_html=True,
+    )
 
 st.markdown(
     """
@@ -75,25 +59,6 @@ st.markdown(
     .info-alert { background-color: rgba(30, 58, 138, 0.85); color: #93c5fd; padding: 14px; border-radius: 10px; border: 1px solid #3b82f6; font-weight: 600; margin-bottom: 12px;}
     .highlight-box { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 14px; border: 2px solid #e5c158; margin-bottom: 18px; box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4); }
     
-    /* STILIZARE CURATĂ ȘI SUPERBĂ PENTRU TOATE FILTRELE / MULTISELECT (TAGS) */
-    span[data-baseweb="tag"] {
-        background: linear-gradient(135deg, #e5c158 0%, #c5a059 100%) !important;
-        color: #090a0f !important;
-        border-radius: 6px !important;
-        font-weight: 700 !important;
-        border: 1px solid #d4af37 !important;
-        box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3) !important;
-    }
-    span[data-baseweb="tag"] span {
-        color: #090a0f !important;
-    }
-    span[data-baseweb="tag"] svg {
-        fill: #090a0f !important;
-    }
-    span[data-baseweb="tag"] svg:hover {
-        opacity: 0.7;
-    }
-
     .whatsapp-btn {
         display: inline-flex;
         align-items: center;
@@ -642,7 +607,7 @@ else:
 tabs = st.tabs(tab_titles)
 
 # ==========================================
-# TAB 1: ADAUGĂ PROGRAMARE (REACTIVĂ ÎN TIMP REAL)
+# TAB 1: ADAUGĂ PROGRAMARE
 # ==========================================
 with tabs[0]:
     if is_admin_or_stylist:
@@ -654,7 +619,7 @@ with tabs[0]:
             existing_users = sorted(st.session_state.users_df[st.session_state.users_df["Rol"] == "Client"]["Utilizator"].dropna().unique().tolist())
             all_known_clients = sorted(list(set(existing_clients + existing_users)))
             
-            # REVENIT LA PREDEFINIT "Din agendă / clienți existenți"
+            # PREDEFINIT BIFAT PE "Din agendă / clienți existenți"
             client_input_mode = st.radio("Mod selectare client", ["Din agendă / clienți existenți", "Client nou (manual)"], horizontal=True, key="admin_client_mode_radio")
             
             if client_input_mode == "Din agendă / clienți existenți" and all_known_clients:
@@ -927,10 +892,26 @@ with tabs[1]:
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
             view_mode = st.selectbox("Vizualizare Perioadă", ["Toate", "Azi", "Mâine", "Săptămâna aceasta", "Săptămâna viitoare", "Luna aceasta", "Programări Viitoare", "Programări Trecute"])
+        
         with col_f2:
-            fil_stilist = st.multiselect("Alege Stilist", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili)
+            st.markdown("##### 💈 Filtrează Stilisti")
+            fil_stilist = []
+            cols_st_filter = st.columns(len(stilisti_disponibili))
+            for i, st_name in enumerate(stilisti_disponibili):
+                with cols_st_filter[i % len(cols_st_filter)]:
+                    default_checked = (st_name == current_user if current_user in stilisti_disponibili else True)
+                    if st.checkbox(st_name, value=default_checked, key=f"chk_fil_stilist_{st_name}"):
+                        fil_stilist.append(st_name)
+
         with col_f3:
-            fil_status = st.multiselect("Alege Status Programare", options=["Confirmat", "În Așteptare"], default=["Confirmat", "În Așteptare"])
+            st.markdown("##### 📌 Filtrează Status")
+            status_options = ["Confirmat", "În Așteptare"]
+            fil_status = []
+            cols_stat_filter = st.columns(len(status_options))
+            for i, stat in enumerate(status_options):
+                with cols_stat_filter[i]:
+                    if st.checkbox(stat, value=True, key=f"chk_fil_status_{stat}"):
+                        fil_status.append(stat)
 
         today = date.today()
         if not df_p.empty:
@@ -1306,7 +1287,14 @@ if is_admin_or_stylist:
         st.markdown("### 💇‍♂️ Gestiune & Catalog Servicii în funcție de Stilist")
         df_serv = st.session_state.serv_df.copy()
         
-        sel_serv_filter = st.multiselect("Alege Stilist pentru Catalog", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili)
+        st.markdown("##### 💈 Filtrează Catalog după Stilist")
+        sel_serv_filter = []
+        cols_serv_f = st.columns(len(stilisti_disponibili))
+        for i, st_name in enumerate(stilisti_disponibili):
+            with cols_serv_f[i % len(cols_serv_f)]:
+                if st.checkbox(st_name, value=(st_name == current_user if current_user in stilisti_disponibili else True), key=f"chk_serv_filter_{st_name}"):
+                    sel_serv_filter.append(st_name)
+
         if sel_serv_filter:
             df_serv_filtered = df_serv[df_serv["Stilist"].isin(sel_serv_filter)]
         else:
@@ -1369,7 +1357,13 @@ if is_admin_or_stylist:
         st.markdown("### ⭐ Moderare Recenzii & Istoric Complet")
         rev_df = st.session_state.rev_df.copy()
         
-        sel_rev_stilist = st.multiselect("Alege Stilist pentru Recenzii", options=stilisti_disponibili, default=[current_user] if current_user in stilisti_disponibili else stilisti_disponibili, key="rev_stilist_multiselect")
+        st.markdown("##### 💈 Filtrează Recenzii după Stilist")
+        sel_rev_stilist = []
+        cols_rev_f = st.columns(len(stilisti_disponibili))
+        for i, st_name in enumerate(stilisti_disponibili):
+            with cols_rev_f[i % len(cols_rev_f)]:
+                if st.checkbox(st_name, value=(st_name == current_user if current_user in stilisti_disponibili else True), key=f"chk_rev_filter_{st_name}"):
+                    sel_rev_stilist.append(st_name)
         
         if sel_rev_stilist:
             rev_df_filtered = rev_df[rev_df["Stilist"].isin(sel_rev_stilist)]
