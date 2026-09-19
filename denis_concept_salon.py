@@ -15,7 +15,7 @@ st.set_page_config(
     page_title="Denis Concept Salon | Luxury Experience",
     layout="wide",
     page_icon="✂️",
-    initial_sidebar_state="collapsed", # Meniul este ascuns implicit și apare doar la apăsarea celor 3 linii
+    initial_sidebar_state="collapsed", # Meniul este ascuns implicit pe mobil și desktop
 )
 
 def apply_background_style(is_logged_in):
@@ -75,7 +75,6 @@ st.markdown(
     .info-alert { background-color: rgba(30, 58, 138, 0.85); color: #93c5fd; padding: 14px; border-radius: 10px; border: 1px solid #3b82f6; font-weight: 600; margin-bottom: 12px;}
     .highlight-box { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 14px; border: 2px solid #e5c158; margin-bottom: 18px; box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4); }
     
-    /* Stilizare personalizată tag-uri multiselect (Auriu & Antracit) */
     span[data-baseweb="tag"] {
         background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%) !important;
         border: 1px solid #e5c158 !important;
@@ -149,14 +148,14 @@ st.markdown(
         font-weight: 700 !important;
         border: none !important;
         border-radius: 8px !important;
-        padding: 0.5rem 1rem !important;
-        box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3) !important;
+        padding: 0.6rem 1.2rem !important;
+        box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4) !important;
         transition: all 0.3s ease !important;
     }
     .stButton>button:hover {
-        opacity: 0.9 !important;
+        opacity: 0.95 !important;
         transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(212, 175, 55, 0.5) !important;
+        box-shadow: 0 6px 18px rgba(212, 175, 55, 0.6) !important;
     }
     </style>
 """,
@@ -177,7 +176,7 @@ SERV_FILE = "servicii_denis_concept.csv"
 USER_FILE = "utilizatori_denis_concept.csv"
 REV_FILE = "recenzii_denis_concept.csv"
 MASTER_WHATSAPP_PHONE = "35796005530"
-MASTER_WHATSAPP_APIKEY = "9926434"
+MASTER_WHATSAPP_APIKEY = "9926434" # Notă: Aceasta este cheia de test publică CallMeBot care returnează "This is a test". Setează o cheie privată în setări!
 
 def init_csvs():
     today_str = date.today().strftime("%Y-%m-%d")
@@ -311,7 +310,6 @@ def remove_diacritics(text):
         without_diacritics = without_diacritics.replace(k, v)
     return without_diacritics
 
-# Trimitere corectă WhatsApp prin CallMeBot (folosind quote_plus pentru a evita mesajul de test)
 def send_free_automatic_whatsapp(phone, message, apikey):
     target_apikey = str(apikey).strip() if apikey and pd.notna(apikey) and str(apikey).strip() != "" and str(apikey).strip() != "nan" else MASTER_WHATSAPP_APIKEY
     target_phone = str(phone).strip() if phone and pd.notna(phone) and str(phone).strip() != "" else MASTER_WHATSAPP_PHONE
@@ -324,6 +322,9 @@ def send_free_automatic_whatsapp(phone, message, apikey):
         
     clean_msg = remove_diacritics(message)
     encoded_text = urllib.parse.quote_plus(clean_msg)
+    
+    # Atenție: Dacă se folosește cheia master 9926434, CallMeBot trimite mereu "This is a test".
+    # Introduceți o cheie API personalizată obținută de la CallMeBot pentru textul real!
     url = f"https://api.callmebot.com/whatsapp.php?phone={clean_phone}&text={encoded_text}&apikey={target_apikey}"
     
     for attempt in range(1, 4):
@@ -483,7 +484,6 @@ if not st.session_state.logged_in:
                     st.session_state.user = u_input
                     st.session_state.role = match.iloc[0]["Rol"]
                     
-                    # Setare pagină implicită în funcție de rol
                     if st.session_state.role in ["Administrator", "Stilist"]:
                         st.session_state.selected_nav = "➕ Adaugă Programare"
                     else:
@@ -506,7 +506,22 @@ current_user = st.session_state.user
 render_marquee_banner()
 
 # ==========================================
-# POP-UP MODAL PENTRU APROBARE / RESPINGERE
+# VERIFICARE NOTIFICĂRI APROBARE CLIENT (O SINGURĂ DATĂ)
+# ==========================================
+if not is_admin_or_stylist:
+    df_p_all = st.session_state.prog_df.copy()
+    client_progs_check = df_p_all[df_p_all["Client"].str.contains(current_user, case=False, na=False)] if not df_p_all.empty else pd.DataFrame()
+    approved_modifs_client = client_progs_check[client_progs_check["Status Modificare"] == "Aprobat"]
+    
+    if not approved_modifs_client.empty:
+        st.toast("Solicitarea ta de modificare a fost aprobată de către stilist!", icon="🟢")
+        # Resetăm statusul pentru a nu mai apărea la următoarele logări
+        for idx_app in approved_modifs_client.index:
+            st.session_state.prog_df.loc[idx_app, "Status Modificare"] = ""
+        save_all()
+
+# ==========================================
+# POP-UP MODAL PENTRU APROBARE / RESPINGERE (ADMIN/STILIST)
 # ==========================================
 @st.dialog("Gestionează Cererea de Modificare")
 def approval_popup(req_r):
@@ -566,13 +581,13 @@ if is_admin_or_stylist:
                     approval_popup(selected_req_data)
 
 # ==========================================
-# MENIU LATERAL ASCUNS (3 LINII) & BUTON HOME
+# MENIU LATERAL & BARĂ DE NAVIGARE RAPIDĂ SUS (MOBIL & DESKTOP)
 # ==========================================
 st.sidebar.markdown(f"### ✂️ **{current_user}**")
 st.sidebar.markdown(f"Rol: <span class='role-tag'>{st.session_state.role}</span>", unsafe_allow_html=True)
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
-# Buton Home care duce direct la pagina principală de adăugare programare sau programare client
+# Buton Home funcțional care duce la pagina principală
 if st.sidebar.button("🏠 ACASĂ / HOME", use_container_width=True):
     if is_admin_or_stylist:
         st.session_state.selected_nav = "➕ Adaugă Programare"
@@ -615,8 +630,17 @@ else:
 if "selected_nav" not in st.session_state:
     st.session_state.selected_nav = nav_options[0]
 
+# Bară de navigare rapidă sus pentru telefon/desktop ca să nu depinzi doar de meniul lateral
+st.markdown("##### ⚡ Navigare Rapidă Salon")
+top_sel_page = st.selectbox("Selectează secțiunea dorită", nav_options, index=nav_options.index(st.session_state.selected_nav) if st.session_state.selected_nav in nav_options else 0, key="top_nav_selectbox")
+if top_sel_page != st.session_state.selected_nav:
+    st.session_state.selected_nav = top_sel_page
+    trigger_rerun()
+
 selected_page = st.sidebar.radio("Navigare Meniu", nav_options, index=nav_options.index(st.session_state.selected_nav) if st.session_state.selected_nav in nav_options else 0, label_visibility="collapsed")
-st.session_state.selected_nav = selected_page
+if selected_page != st.session_state.selected_nav:
+    st.session_state.selected_nav = selected_page
+    trigger_rerun()
 
 if not is_admin_or_stylist:
     st.sidebar.markdown("---")
@@ -658,13 +682,13 @@ if is_admin_or_stylist and current_user in stilisti_disponibili:
     default_stylist_idx = stilisti_disponibili.index(current_user)
 
 # ==========================================
-# RUTARE PAGINI ÎN FUNCȚIE DE MENIUL LATERAL
+# RUTARE PAGINI ÎN FUNCȚIE DE MENIUL SELECTAT
 # ==========================================
 is_home_view = selected_page == "🏠 Acasă / Dashboard"
 
 if is_home_view:
     st.markdown(f"### ✨ Bun venit la Denis Concept Salon, **{current_user}**!")
-    st.markdown("<p style='color: #9ca3af;'>Folosește meniul lateral (butonul cu 3 linii din stânga sus) pentru a naviga prin secțiunile aplicației.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #9ca3af;'>Folosește meniul de mai sus sau meniul lateral pentru a naviga prin aplicație.</p>", unsafe_allow_html=True)
     
     col_h1, col_h2, col_h3 = st.columns(3)
     with col_h1:
@@ -893,7 +917,6 @@ elif not is_admin_or_stylist and selected_page == "📅 Programează-te":
             p_obs = st.text_area("📝 Observații / Preferințe", height=68)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        # Buton de salvare programare client evidențiat vizual prin container și stil
         st.markdown("""
         <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(197, 160, 89, 0.1)); padding: 15px; border-radius: 12px; border: 2px solid #e5c158; text-align: center; margin-bottom: 10px;">
             <b style="color: #e5c158; font-size: 15px;">✨ Apăsați butonul de mai jos pentru a finaliza programarea:</b>
@@ -1053,10 +1076,6 @@ elif not is_admin_or_stylist and selected_page == "📜 Programări curente & mo
     client_name = current_user
     df_p_all = st.session_state.prog_df.copy()
     client_progs = df_p_all[df_p_all["Client"].str.contains(client_name, case=False, na=False)] if not df_p_all.empty else pd.DataFrame()
-    
-    approved_modifs_client = client_progs[client_progs["Status Modificare"] == "Aprobat"]
-    if not approved_modifs_client.empty:
-        st.toast("Solicitarea ta de modificare a fost aprobată de către stilist!", icon="🟢")
 
     if "cancel_success_alert" in st.session_state:
         st.toast(st.session_state["cancel_success_alert"], icon="✅")
@@ -1529,6 +1548,12 @@ elif is_admin and selected_page == "📊 Raport Financiar":
 
 elif is_admin and selected_page == "⚙️ Setări & Utilizatori":
     st.markdown("### ⚙️ Panou Setări & Gestiune Utilizatori / Chei API WhatsApp")
+    st.markdown("""
+    <div class="info-alert">
+        ℹ️ <b>Notă importantă pentru WhatsApp:</b> Cheia master implicită (9926434) este o cheie de test publică oferită de CallMeBot care returnează automat textul <i>"This is a test"</i>. Pentru a primi mesajele personalizate reale pe WhatsApp, fiecare stilist/admin trebuie să obțină propria cheie API gratuită trimițând mesajul de activare pe WhatsApp către CallMeBot și să o introducă mai jos!
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown(render_lux_table(st.session_state.users_df[["Utilizator", "Rol", "Telefon", "APIKey"]]), unsafe_allow_html=True)
 
     users_list = st.session_state.users_df["Utilizator"].tolist()
