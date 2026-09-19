@@ -21,33 +21,62 @@ st.set_page_config(
 def apply_background_style(is_logged_in):
     salon_bg_url = "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1920&q=80"
     
-    # Dacă este logat, fundalul devine mult mai blurry și elegant
-    blur_val = "14px" if is_logged_in else "4px"
-    opacity_val = "0.82" if is_logged_in else "0.70"
+    # Valoare de blur mai mare și accentuată după logare
+    blur_val = "16px" if is_logged_in else "4px"
     
     css_template = """
     <style>
-    :root {
-        --primary-color: #e5c158 !important;
-        --background-color: #0f1117 !important;
-        --secondary-background-color: #1a202c !important;
-        --text-color: #f3f4f6 !important;
+    /* Fundal cu efect real de blur folosind un strat pseudo-element dedicat */
+    .stApp::before {
+        content: "";
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: url('REPLACE_URL') center/cover fixed !important;
+        filter: blur(BLUR_VAL);
+        -webkit-filter: blur(BLUR_VAL);
+        transform: scale(1.1);
+        z-index: -999999;
     }
     .stApp {
-        background: linear-gradient(135deg, rgba(15, 17, 23, OPACITY_VAL) 0%, rgba(22, 26, 34, OPACITY_VAL) 100%),
-                    radial-gradient(circle at 50% 35%, rgba(212, 175, 55, 0.22) 0%, transparent 75%),
-                    url('REPLACE_URL') !important;
-        background-size: cover !important;
-        background-position: center !important;
-        background-attachment: fixed !important;
-        backdrop-filter: blur(BLUR_VAL) !important;
-        -webkit-backdrop-filter: blur(BLUR_VAL) !important;
+        background: linear-gradient(135deg, rgba(15, 17, 23, 0.85) 0%, rgba(22, 26, 34, 0.92) 100%) !important;
         color: #f3f4f6 !important;
         font-family: 'Helvetica Neue', sans-serif;
     }
+
+    /* STILIZARE RIGUROASĂ AURIU-LUX PENTRU TOATE TAG-URILE DIN ST.MULTISELECT (ELIMINARE TOTALĂ ROȘU) */
+    div[data-baseweb="tag"], 
+    span[data-baseweb="tag"], 
+    .stMultiSelect div[data-baseweb="tag"], 
+    .stMultiSelect span[data-baseweb="tag"],
+    [data-testid="stMultiSelect"] div[data-baseweb="tag"],
+    [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+        background: linear-gradient(135deg, #e5c158 0%, #c5a059 100%) !important;
+        background-color: #e5c158 !important;
+        color: #090a0f !important;
+        border-radius: 6px !important;
+        font-weight: 700 !important;
+        border: 1px solid #d4af37 !important;
+        box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3) !important;
+    }
+    div[data-baseweb="tag"] span, 
+    span[data-baseweb="tag"] span, 
+    .stMultiSelect [data-baseweb="tag"] span,
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] span {
+        color: #090a0f !important;
+    }
+    div[data-baseweb="tag"] svg, 
+    span[data-baseweb="tag"] svg, 
+    .stMultiSelect [data-baseweb="tag"] svg,
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] svg {
+        fill: #090a0f !important;
+    }
+    div[data-baseweb="tag"] svg:hover, 
+    span[data-baseweb="tag"] svg:hover {
+        opacity: 0.7;
+    }
     </style>
     """
-    final_css = css_template.replace("REPLACE_URL", salon_bg_url).replace("BLUR_VAL", blur_val).replace("OPACITY_VAL", opacity_val)
+    final_css = css_template.replace("REPLACE_URL", salon_bg_url).replace("BLUR_VAL", blur_val)
     st.markdown(final_css, unsafe_allow_html=True)
 
 st.markdown(
@@ -69,25 +98,6 @@ st.markdown(
     .success-alert { background-color: rgba(6, 78, 59, 0.95); color: #6ee7b7; padding: 14px; border-radius: 10px; border: 1px solid #10b981; font-weight: 600; margin-bottom: 12px;}
     .info-alert { background-color: rgba(30, 58, 138, 0.85); color: #93c5fd; padding: 14px; border-radius: 10px; border: 1px solid #3b82f6; font-weight: 600; margin-bottom: 12px;}
     .highlight-box { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 14px; border: 2px solid #e5c158; margin-bottom: 18px; box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4); }
-    
-    /* STILIZARE RIGUROASĂ AURIU-LUX PENTRU TOATE TAG-URILE DIN ST.MULTISELECT (ELIMINARE ROȘU) */
-    div[data-baseweb="tag"], span[data-baseweb="tag"], .stMultiSelect span[data-baseweb="tag"], [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
-        background: linear-gradient(135deg, #e5c158 0%, #c5a059 100%) !important;
-        color: #090a0f !important;
-        border-radius: 6px !important;
-        font-weight: 700 !important;
-        border: 1px solid #d4af37 !important;
-        box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3) !important;
-    }
-    div[data-baseweb="tag"] span, span[data-baseweb="tag"] span, .stMultiSelect span[data-baseweb="tag"] span, [data-testid="stMultiSelect"] span[data-baseweb="tag"] span {
-        color: #090a0f !important;
-    }
-    div[data-baseweb="tag"] svg, span[data-baseweb="tag"] svg, .stMultiSelect span[data-baseweb="tag"] svg, [data-testid="stMultiSelect"] span[data-baseweb="tag"] svg {
-        fill: #090a0f !important;
-    }
-    div[data-baseweb="tag"] svg:hover, span[data-baseweb="tag"] svg:hover {
-        opacity: 0.7;
-    }
 
     .whatsapp-btn {
         display: inline-flex;
