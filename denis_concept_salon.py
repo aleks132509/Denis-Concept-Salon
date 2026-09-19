@@ -24,9 +24,9 @@ def apply_background_style(is_logged_in):
             """
             <style>
             .stApp {
-                background: linear-gradient(135deg, rgba(22, 24, 30, 0.96) 0%, rgba(33, 37, 48, 0.98) 100%),
-                            radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.28) 0%, transparent 70%),
-                            url('https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1920&q=80') !important;
+                background: linear-gradient(135deg, rgba(18, 20, 26, 0.88) 0%, rgba(28, 32, 42, 0.92) 100%),
+                            radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.3) 0%, transparent 75%),
+                            url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1920&q=80') !important;
                 background-size: cover !important;
                 background-position: center !important;
                 background-attachment: fixed !important;
@@ -42,8 +42,8 @@ def apply_background_style(is_logged_in):
             """
             <style>
             .stApp {
-                background: linear-gradient(rgba(9, 11, 16, 0.92), rgba(15, 19, 28, 0.95)), 
-                            url('https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1920&q=80') !important;
+                background: linear-gradient(rgba(9, 11, 16, 0.90), rgba(15, 19, 28, 0.93)), 
+                            url('https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1920&q=80') !important;
                 background-size: cover !important;
                 background-position: center !important;
                 background-attachment: fixed !important;
@@ -75,14 +75,14 @@ st.markdown(
     .info-alert { background-color: rgba(30, 58, 138, 0.85); color: #93c5fd; padding: 14px; border-radius: 10px; border: 1px solid #3b82f6; font-weight: 600; margin-bottom: 12px;}
     .highlight-box { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 14px; border: 2px solid #e5c158; margin-bottom: 18px; box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4); }
     
-    /* STILIZARE SUPERBĂ PENTRU ETICHETE / TAGS (MULTISELECT) */
+    /* STILIZARE CURATĂ ȘI SUPERBĂ PENTRU TOATE FILTRELE / MULTISELECT (TAGS) */
     span[data-baseweb="tag"] {
         background: linear-gradient(135deg, #e5c158 0%, #c5a059 100%) !important;
         color: #090a0f !important;
-        border-radius: 8px !important;
+        border-radius: 6px !important;
         font-weight: 700 !important;
         border: 1px solid #d4af37 !important;
-        box-shadow: 0 2px 8px rgba(212, 175, 55, 0.4) !important;
+        box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3) !important;
     }
     span[data-baseweb="tag"] span {
         color: #090a0f !important;
@@ -654,8 +654,8 @@ with tabs[0]:
             existing_users = sorted(st.session_state.users_df[st.session_state.users_df["Rol"] == "Client"]["Utilizator"].dropna().unique().tolist())
             all_known_clients = sorted(list(set(existing_clients + existing_users)))
             
-            # ÎNCEPEM PREDEFINIT CU "Client nou (manual)" PENTRU A FI CÂMPURILE GOALE
-            client_input_mode = st.radio("Mod selectare client", ["Client nou (manual)", "Din agendă / clienți existenți"], horizontal=True, key="admin_client_mode_radio")
+            # REVENIT LA PREDEFINIT "Din agendă / clienți existenți"
+            client_input_mode = st.radio("Mod selectare client", ["Din agendă / clienți existenți", "Client nou (manual)"], horizontal=True, key="admin_client_mode_radio")
             
             if client_input_mode == "Din agendă / clienți existenți" and all_known_clients:
                 client_nume = st.selectbox("👤 Selectează Client din Agendă", all_known_clients, key="admin_agenda_client_sel")
