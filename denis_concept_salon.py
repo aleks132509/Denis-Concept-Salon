@@ -244,7 +244,6 @@ def get_whatsapp_link(phone, text):
     encoded_text = urllib.parse.quote(text)
     return f"https://wa.me/{clean_phone}?text={encoded_text}"
 
-# Funcție CallMeBot optimizată pentru WhatsApp automat
 def send_free_automatic_whatsapp(phone, message, apikey):
     try:
         if not apikey or pd.isna(apikey) or str(apikey).strip() == "" or str(apikey).strip() == "nan":
@@ -264,19 +263,40 @@ def send_free_automatic_whatsapp(phone, message, apikey):
         print("Erore trimitere WhatsApp automat CallMeBot:", e)
         return False
 
-def highlight_status_cells(row):
-    styles = []
-    for val in row:
-        v_str = str(val)
-        if v_str in ["Anulat", "Respins"]:
-            styles.append('background-color: rgba(127, 29, 29, 0.4); color: #fca5a5; font-weight: bold; text-align: center;')
-        elif v_str in ["Efectuat", "Aprobat"]:
-            styles.append('background-color: rgba(6, 78, 59, 0.4); color: #6ee7b7; font-weight: bold; text-align: center;')
-        elif v_str in ["Confirmat", "În Așteptare"]:
-            styles.append('background-color: rgba(120, 80, 20, 0.4); color: #fef08a; font-weight: bold; text-align: center;')
-        else:
-            styles.append('text-align: center;')
-    return styles
+# Motor de randare tabele stilizate de lux (High-End UI)
+def render_lux_table(df):
+    if df.empty:
+        return "<div style='text-align: center; padding: 25px; color: #9ca3af; background: #131722; border-radius: 12px; border: 1px solid rgba(212, 175, 55, 0.2);'>Nu există înregistrări de afișat momentan.</div>"
+    
+    html = "<div style='overflow-x: auto; margin-bottom: 20px;'><table style='width: 100%; border-collapse: collapse; background: linear-gradient(135deg, #131722 0%, #1a202c 100%); border-radius: 14px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid rgba(212, 175, 55, 0.3); font-family: sans-serif; font-size: 13px;'>"
+    
+    html += "<thead><tr style='background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%); color: #e5c158; text-transform: uppercase; font-size: 11px; letter-spacing: 1.5px; border-bottom: 2px solid rgba(212, 175, 55, 0.4);'>"
+    for col in df.columns:
+        html += f"<th style='padding: 16px 14px; text-align: center; font-weight: 700;'>{col}</th>"
+    html += "</tr></thead><tbody>"
+    
+    for idx, row in df.iterrows():
+        row_bg = "#131722" if idx % 2 == 0 else "#181d29"
+        html += f"<tr style='background-color: {row_bg}; border-bottom: 1px solid rgba(255, 255, 255, 0.06); transition: background 0.2s;' onmouseover=\"this.style.backgroundColor='#222736'\" onmouseout=\"this.style.backgroundColor='{row_bg}'\">"
+        
+        for col in df.columns:
+            val = str(row[col])
+            if val == "nan" or val == "NaN" or val == "None":
+                val = ""
+            
+            cell_style = "padding: 14px 12px; text-align: center; color: #f3f4f6;"
+            if col in ["Status", "Status Modificare"]:
+                if val in ["Confirmat", "În Așteptare"]:
+                    val = f"<span style='background: rgba(120, 80, 20, 0.5); color: #fef08a; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 11px; border: 1px solid rgba(212, 175, 55, 0.4); display: inline-block; text-transform: uppercase; letter-spacing: 0.5px;'>{val}</span>"
+                elif val in ["Efectuat", "Aprobat"]:
+                    val = f"<span style='background: rgba(6, 78, 59, 0.6); color: #6ee7b7; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 11px; border: 1px solid rgba(16, 185, 129, 0.4); display: inline-block; text-transform: uppercase; letter-spacing: 0.5px;'>{val}</span>"
+                elif val in ["Anulat", "Respins"]:
+                    val = f"<span style='background: rgba(127, 29, 29, 0.6); color: #fca5a5; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 11px; border: 1px solid rgba(239, 68, 68, 0.4); display: inline-block; text-transform: uppercase; letter-spacing: 0.5px;'>{val}</span>"
+            
+            html += f"<td style='{cell_style}'>{val}</td>"
+        html += "</tr>"
+    html += "</tbody></table></div>"
+    return html
 
 def render_marquee_banner():
     rev_aprobate_banner = st.session_state.rev_df[st.session_state.rev_df["Status"] == "Aprobat"] if not st.session_state.rev_df.empty else pd.DataFrame()
@@ -433,12 +453,13 @@ elif is_stylist:
         "➕ Adaugă Programare", 
         "⚙️ Gestiune & Aprobări", 
         "💇‍♂️ Servicii & Prețuri", 
-        "⭐ Recenzii"
+        "⭐ Recenzii & Istoric",
+        "📊 Raport Financiarul Meu"
     ])
 else:
     tabs = st.tabs([
         "📅 Programează-te", 
-        "📜 Istoric Programări", 
+        "📜 Istoric & Modificare Programări", 
         "⭐ Recenzii Salon & Istoricul Meu"
     ])
 
@@ -506,13 +527,7 @@ with tabs[0]:
 
         if not df_p.empty:
             df_display_admin = df_p.copy()
-            status_cols_admin = [c for c in ["Status", "Status Modificare"] if c in df_display_admin.columns]
-            
-            if status_cols_admin:
-                styled_admin_df = df_display_admin.style.apply(highlight_status_cells, subset=status_cols_admin, axis=1)
-                st.dataframe(styled_admin_df, use_container_width=True)
-            else:
-                st.dataframe(df_display_admin, use_container_width=True)
+            st.markdown(render_lux_table(df_display_admin), unsafe_allow_html=True)
             
             st.markdown("##### 📱 Acțiuni Rapide WhatsApp pe Dată Selectată")
             col_wa_d1, col_wa_d2 = st.columns(2)
@@ -681,7 +696,7 @@ with tabs[0]:
         st.button("💾 Salvează Programarea", type="primary", use_container_width=True, on_click=action_save_client)
 
 # ==========================================
-# TAB 2: ADAUGĂ PROGRAMARE (Admin/Stilist) / ISTORIC PROGRAMĂRI (Client)
+# TAB 2: ADAUGĂ PROGRAMARE (Admin/Stilist) / ISTORIC & MODIFICARE (Client)
 # ==========================================
 with tabs[1]:
     if is_admin_or_stylist:
@@ -810,8 +825,8 @@ with tabs[1]:
         st.button("💾 Salvează Programarea", type="primary", use_container_width=True, on_click=action_save_admin)
 
     else:
-        # Client Tab 2: Istoric Programări
-        st.markdown(f"### 📜 Istoricul Programărilor Tale, {current_user}")
+        # Client Tab 2: Istoric & Modificare Programări
+        st.markdown(f"### 📜 Istoric & Modificare Programări, {current_user}")
         client_name = current_user
         df_p_all = st.session_state.prog_df.copy()
         client_progs = df_p_all[df_p_all["Client"].str.contains(client_name, case=False, na=False)] if not df_p_all.empty else pd.DataFrame()
@@ -836,13 +851,7 @@ with tabs[1]:
             df_client_display = client_progs[["Nr. Programare", "Dată", "Ora Start", "Ora Sfârșit", "Serviciu", "Stilist", "Preț", "Durată", "Status", "Status Modificare"]].copy()
             df_client_display["Status Modificare"] = df_client_display["Status Modificare"].apply(lambda x: "" if str(x) in ["Niciuna", "nan", "NaN", ""] else x)
             
-            status_cols_client = [c for c in ["Status", "Status Modificare"] if c in df_client_display.columns]
-            
-            if status_cols_client:
-                styled_client_df = df_client_display.style.apply(highlight_status_cells, subset=status_cols_client, axis=1)
-                st.dataframe(styled_client_df, use_container_width=True)
-            else:
-                st.dataframe(df_client_display, use_container_width=True)
+            st.markdown(render_lux_table(df_client_display), unsafe_allow_html=True)
             
             st.markdown("---")
             st.markdown("##### ❌ Anulare / ✏️ Modificare Programare Viitoare")
@@ -943,13 +952,14 @@ with tabs[1]:
                                 st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == nr_selected, "Noua Ora"] = new_ora
                                 st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == nr_selected, "Noul Serviciu"] = new_serv
                                 save_all()
+                                st.markdown('<div class="success-alert">✅ Solicitarea de modificare a fost trimisă cu succes spre aprobare!</div>', unsafe_allow_html=True)
                                 st.session_state["client_mod_sent_success"] = True
                                 trigger_rerun()
 
                 if st.session_state.get("client_mod_sent_success", False):
                     st.markdown("""
-                    <div class="overlap-alert">
-                        🔴 <b>SOLICITARE TRIMISĂ SPRE APROBARE!</b> Cererea ta de modificare a fost înregistrată și trimisă stilistului spre validare.
+                    <div class="success-alert">
+                        ✅ <b>SOLICITARE TRIMISĂ CU SUCCES!</b> Cererea ta de modificare a fost înregistrată și trimisă stilistului spre validare.
                     </div>
                     """, unsafe_allow_html=True)
                     del st.session_state["client_mod_sent_success"]
@@ -983,7 +993,7 @@ if is_admin_or_stylist:
                             st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Serviciu"] = req_r["Noul Serviciu"]
                             st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Status Modificare"] = "Aprobat"
                             save_all()
-                            st.success("Modificarea a fost aprobată cu succes!")
+                            st.markdown('<div class="success-alert">✅ Modificarea a fost aprobată cu succes!</div>', unsafe_allow_html=True)
                             trigger_rerun()
                             
                     with col_ap2:
@@ -1059,7 +1069,7 @@ if is_admin_or_stylist:
                             st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Status"] = q_status
                             st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Observații"] = q_obs
                             save_all()
-                            st.success("Programarea a fost actualizată cu succes!")
+                            st.markdown('<div class="success-alert">✅ Programarea a fost actualizată cu succes!</div>', unsafe_allow_html=True)
                             trigger_rerun()
 
                 col_btn_m1, col_btn_m2, col_btn_m3 = st.columns(3)
@@ -1067,7 +1077,7 @@ if is_admin_or_stylist:
                     if st.button("Marchează ca Efectuat"):
                         st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Status"] = "Efectuat"
                         save_all()
-                        st.success("Programare marcată ca efectuat!")
+                        st.markdown('<div class="success-alert">✅ Programare marcată ca efectuat cu succes!</div>', unsafe_allow_html=True)
                         trigger_rerun()
                 with col_btn_m2:
                     if st.button("Marchează ca Anulat"):
@@ -1087,13 +1097,13 @@ if is_admin_or_stylist:
             st.info("Nu există programări în sistem.")
 
 # ==========================================
-# TAB 4 & 5: SERVICII & RECENZII (Admin & Stilist)
+# TAB 4: SERVICII & PREȚURI (Admin & Stilist)
 # ==========================================
 if is_admin_or_stylist:
     with tabs[3]:
         st.markdown("### 💇‍♂️ Gestiune & Catalog Servicii în funcție de Stilist")
         df_serv = st.session_state.serv_df.copy()
-        st.dataframe(df_serv, use_container_width=True)
+        st.markdown(render_lux_table(df_serv), unsafe_allow_html=True)
 
         st.markdown("---")
         col_s1, col_s2, col_s3 = st.columns(3)
@@ -1110,7 +1120,7 @@ if is_admin_or_stylist:
                         new_s = pd.DataFrame([{"Serviciu": ns_nume, "Preț": ns_pret, "Durată (min)": ns_durata, "Stilist": ns_stilist}])
                         st.session_state.serv_df = pd.concat([st.session_state.serv_df, new_s], ignore_index=True)
                         save_all()
-                        st.success("Serviciu adăugat!")
+                        st.markdown('<div class="success-alert">✅ Serviciul a fost adăugat cu succes!</div>', unsafe_allow_html=True)
                         trigger_rerun()
                         
         with col_s2:
@@ -1129,7 +1139,7 @@ if is_admin_or_stylist:
                         st.session_state.serv_df.loc[st.session_state.serv_df["Serviciu"] == edit_target, "Preț"] = e_pret
                         st.session_state.serv_df.loc[st.session_state.serv_df["Serviciu"] == edit_target, "Durată (min)"] = e_durata
                         save_all()
-                        st.success("Serviciu actualizat!")
+                        st.markdown('<div class="success-alert">✅ Serviciul a fost actualizat cu succes!</div>', unsafe_allow_html=True)
                         trigger_rerun()
                         
         with col_s3:
@@ -1142,10 +1152,21 @@ if is_admin_or_stylist:
                     st.success("Serviciul a fost șters.")
                     trigger_rerun()
 
+# ==========================================
+# TAB 5: RECENZII PENTRU STILIST (Pending + Istoric) SAU ADMIN
+# ==========================================
+if is_admin_or_stylist:
     with tabs[4]:
-        st.markdown("### ⭐ Moderare Recenzii (În Așteptare)")
+        st.markdown("### ⭐ Moderare Recenzii & Istoric Complet")
         rev_df = st.session_state.rev_df.copy()
-        pending_revs = rev_df[rev_df["Status"] == "În așteptare"] if not rev_df.empty else pd.DataFrame()
+        
+        # Dacă este stilist, putem afișa recenziile care îl privesc sau toate, dar să aibă atât în așteptare cât și istoric
+        if is_stylist:
+            st.markdown("#### 🔔 Recenzii în Așteptare pentru Moderare")
+            pending_revs = rev_df[(rev_df["Status"] == "În așteptare") & (rev_df["Stilist"] == current_user)] if not rev_df.empty else pd.DataFrame()
+        else:
+            st.markdown("#### 🔔 Recenzii în Așteptare pentru Moderare")
+            pending_revs = rev_df[rev_df["Status"] == "În așteptare"] if not rev_df.empty else pd.DataFrame()
         
         if not pending_revs.empty:
             rev_options = {}
@@ -1153,23 +1174,18 @@ if is_admin_or_stylist:
                 label = f"Client: {r['Client']} | Stilist: {r['Stilist']} | Rating: {r['Rating']}⭐ | Comentariu: {str(r['Comentariu'])[:35]}..."
                 rev_options[label] = int(r['ID']) if pd.notna(r['ID']) else 0
 
-            sel_rev_label = st.selectbox("Selectează Recenzia din Așteptare pentru Aprobare", list(rev_options.keys()))
+            sel_rev_label = st.selectbox("Selectează Recenzia din Așteptare", list(rev_options.keys()))
             sel_rev_id = rev_options[sel_rev_label]
             
             rev_display = rev_df[rev_df["ID"] == sel_rev_id].drop(columns=["ID"], errors="ignore")
-            status_cols_rev = [c for c in ["Status"] if c in rev_display.columns]
-            
-            if status_cols_rev:
-                st.dataframe(rev_display.style.apply(highlight_status_cells, subset=status_cols_rev, axis=1), use_container_width=True)
-            else:
-                st.dataframe(rev_display, use_container_width=True)
+            st.markdown(render_lux_table(rev_display), unsafe_allow_html=True)
             
             col_m1, col_m2 = st.columns(2)
             with col_m1:
                 if st.button("✅ Aprobă Publicarea Recenziei"):
                     st.session_state.rev_df.loc[st.session_state.rev_df["ID"] == sel_rev_id, "Status"] = "Aprobat"
                     save_all()
-                    st.success("Recenzia a fost aprobată și adăugată în bannerul public!")
+                    st.markdown('<div class="success-alert">✅ Recenzia a fost aprobată și adăugată în bannerul public!</div>', unsafe_allow_html=True)
                     trigger_rerun()
             with col_m2:
                 if st.button("🗑️ Șterge Recenzia", type="primary"):
@@ -1180,9 +1196,63 @@ if is_admin_or_stylist:
         else:
             st.info("Nu există nicio recenzie în așteptarea moderării.")
 
+        st.markdown("---")
+        st.markdown("#### 📜 Istoric Recenzii Aprobate")
+        if is_stylist:
+            aprobate_stylist = rev_df[(rev_df["Status"] == "Aprobat") & (rev_df["Stilist"] == current_user)] if not rev_df.empty else pd.DataFrame()
+        else:
+            aprobate_stylist = rev_df[rev_df["Status"] == "Aprobat"] if not rev_df.empty else pd.DataFrame()
+
+        if not aprobate_stylist.empty:
+            st.markdown(render_lux_table(aprobate_stylist.drop(columns=["ID"], errors="ignore")), unsafe_allow_html=True)
+        else:
+            st.info("Nu există recenzii aprobate în istoric.")
+
 # ==========================================
-# RAPORT FINANCIAR & SETĂRI (Doar pentru Administrator)
+# RAPORT FINANCIAR PENTRU STILIST (TAB 6) SAU ADMIN (TAB 6 & 7)
 # ==========================================
+if is_stylist:
+    with tabs[5]:
+        st.markdown(f"### 📊 Raport Financiar Personal — {current_user}")
+        df_f = st.session_state.prog_df.copy()
+
+        if not df_f.empty and "Preț" in df_f.columns:
+            # Filtrăm strict pentru stilistul curent
+            df_f = df_f[df_f["Stilist"] == current_user]
+            
+            df_f["Dată_dt"] = pd.to_datetime(df_f["Dată"], errors="coerce")
+            df_f["Lună"] = df_f["Dată_dt"].dt.strftime("%Y-%m")
+
+            luni_disponibile = ["Toate"] + sorted(df_f["Lună"].dropna().unique().tolist())
+            sel_luna = st.selectbox("Filtrează Lunar", luni_disponibile, key="stilist_fin_luna")
+
+            if sel_luna != "Toate":
+                df_f = df_f[df_f["Lună"] == sel_luna]
+
+            total_incasari_efectuate = df_f[df_f["Status"] == "Efectuat"]["Preț"].sum()
+            total_programari = len(df_f)
+
+            c_f1, c_f2 = st.columns(2)
+            with c_f1:
+                st.markdown(f'<div class="salon-card"><div class="metric-lbl">Total Încasările Tale Reale</div><div class="metric-val">{total_incasari_efectuate} RON</div></div>', unsafe_allow_html=True)
+            with c_f2:
+                st.markdown(f'<div class="salon-card"><div class="metric-lbl">Total Programări Asignate</div><div class="metric-val">{total_programari}</div></div>', unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            if not df_f.empty:
+                fig = px.bar(
+                    df_f, x="Dată", y="Preț", color="Status",
+                    title=f"Încasările Tale pe Dată ({current_user})",
+                    template="plotly_dark",
+                    color_discrete_sequence=["#e5c158", "#38bdf8", "#34d399", "#f43f5e"]
+                )
+                max_p = df_f["Preț"].max() if not df_f.empty else 100
+                fig.update_layout(yaxis=dict(range=[0, max_p * 1.25]))
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Nu există date financiare înregistrate.")
+
 if is_admin:
     with tabs[5]:
         st.markdown("### 📊 Raport Financiar & Total Plată în Funcție de Servicii Efectuate")
@@ -1231,7 +1301,7 @@ if is_admin:
 
     with tabs[6]:
         st.markdown("### ⚙️ Panou Setări & Gestiune Utilizatori / Chei API WhatsApp")
-        st.dataframe(st.session_state.users_df[["Utilizator", "Rol", "Telefon", "APIKey"]], use_container_width=True)
+        st.markdown(render_lux_table(st.session_state.users_df[["Utilizator", "Rol", "Telefon", "APIKey"]]), unsafe_allow_html=True)
 
         users_list = st.session_state.users_df["Utilizator"].tolist()
         sel_user_mgmt = st.selectbox("Selectează Utilizator pentru Setarea cheii API WhatsApp sau Adaugă", ["-- Adaugă Utilizator Nou --"] + users_list)
@@ -1253,7 +1323,7 @@ if is_admin:
                             new_u = pd.DataFrame([{"Utilizator": n_user, "Parolă": n_pass, "Rol": n_rol, "Telefon": formatted_new_tel, "APIKey": n_apikey}])
                             st.session_state.users_df = pd.concat([st.session_state.users_df, new_u], ignore_index=True)
                             save_all()
-                            st.success(f"Utilizatorul {n_user} a fost adăugat!")
+                            st.markdown(f'<div class="success-alert">✅ Utilizatorul {n_user} a fost adăugat cu succes!</div>', unsafe_allow_html=True)
                             trigger_rerun()
         else:
             u_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == sel_user_mgmt].iloc[0]
@@ -1276,7 +1346,7 @@ if is_admin:
                     st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Telefon"] = formatted_edited_tel
                     st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "APIKey"] = e_apikey
                     save_all()
-                    st.success(f"Utilizatorul {sel_user_mgmt} a fost actualizat!")
+                    st.markdown(f'<div class="success-alert">✅ Utilizatorul {sel_user_mgmt} a fost actualizat cu succes!</div>', unsafe_allow_html=True)
                     trigger_rerun()
                 if del_mod:
                     if sel_user_mgmt in ["Alex", "Denis", "Adrian", "Andreea"]:
