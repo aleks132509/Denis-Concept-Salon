@@ -307,6 +307,24 @@ def remove_diacritics(text):
     without_diacritics = "".join([c for c in nfd_form if unicodedata.category(c) != 'Mn'])
     return without_diacritics
 
+def sanitize_apikey_input(raw):
+    """
+    Dacă utilizatorul lipește din greșeală URL-ul întreg de test CallMeBot
+    (ex: "https://api.callmebot.com/whatsapp.php?phone=...&text=This+is+a+test&apikey=123456")
+    în loc de doar cheia numerică, extrage cheia reală din el.
+    """
+    if raw is None or pd.isna(raw):
+        return ""
+    raw_str = str(raw).strip()
+    if "apikey=" in raw_str:
+        try:
+            parsed_qs = urllib.parse.parse_qs(urllib.parse.urlparse(raw_str).query)
+            if "apikey" in parsed_qs and parsed_qs["apikey"]:
+                return parsed_qs["apikey"][0].strip()
+        except Exception:
+            pass
+    return raw_str
+
 def send_free_automatic_whatsapp(phone, message, apikey=None):
     """
     Trimite un mesaj WhatsApp automat prin CallMeBot.
@@ -323,7 +341,7 @@ def send_free_automatic_whatsapp(phone, message, apikey=None):
     Admin > Setări & Utilizatori, trimiterea va funcționa automat, la fel ca
     pentru Alex, fără nicio altă modificare de cod.
     """
-    apikey_str = str(apikey).strip() if apikey is not None and pd.notna(apikey) else ""
+    apikey_str = sanitize_apikey_input(apikey)
     if apikey_str in ("", "nan", "None"):
         print(f"WhatsApp NETRIMIS către {phone}: nu are încă propriul API Key CallMeBot configurat.")
         return False
@@ -1077,14 +1095,24 @@ with tabs[1]:
             st.toast(st.session_state["cancel_success_alert"], icon="✅")
             del st.session_state["cancel_success_alert"]
 
-        st.markdown("##### 📅 Programări curente & anulate")
-        current_active_progs = client_progs[(client_progs["Dată"] >= str(date.today())) & (client_progs["Status"].isin(["Confirmat", "Anulat"]))]
+        st.markdown("##### 📅 Programări curente & în așteptare")
+        current_active_progs = client_progs[(client_progs["Dată"] >= str(date.today())) & (client_progs["Status"] == "Confirmat")]
         if not current_active_progs.empty:
             df_curr_display = current_active_progs[["Dată", "Ora Start", "Ora Sfârșit", "Serviciu", "Stilist", "Preț", "Durată", "Status", "Status Modificare"]].copy()
             df_curr_display["Status Modificare"] = df_curr_display["Status Modificare"].apply(lambda x: "" if str(x) in ["Niciuna", "nan", "NaN", ""] else x)
             st.markdown(render_lux_table(df_curr_display), unsafe_allow_html=True)
         else:
             st.info("Nu ai programări active momentan.")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("##### ❌ Programări anulate")
+        cancelled_progs = client_progs[(client_progs["Dată"] >= str(date.today())) & (client_progs["Status"] == "Anulat")]
+        if not cancelled_progs.empty:
+            df_cancel_display = cancelled_progs[["Dată", "Ora Start", "Ora Sfârșit", "Serviciu", "Stilist", "Preț", "Durată", "Status", "Status Modificare"]].copy()
+            df_cancel_display["Status Modificare"] = df_cancel_display["Status Modificare"].apply(lambda x: "" if str(x) in ["Niciuna", "nan", "NaN", ""] else x)
+            st.markdown(render_lux_table(df_cancel_display), unsafe_allow_html=True)
+        else:
+            st.info("Nu ai programări anulate momentan.")
 
         st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
@@ -1612,7 +1640,7 @@ if is_admin:
                             st.toast("Utilizatorul există deja!", icon="❌")
                         else:
                             formatted_new_tel = format_phone_input(n_tel)
-                            new_u = pd.DataFrame([{"Utilizator": n_user, "Parolă": n_pass, "Rol": n_rol, "Telefon": formatted_new_tel, "APIKey": n_apikey}])
+                            new_u = pd.DataFrame([{"Utilizator": n_user, "Parolă": n_pass, "Rol": n_rol, "Telefon": formatted_new_tel, "APIKey": sanitize_apikey_input(n_apikey)}])
                             st.session_state.users_df = pd.concat([st.session_state.users_df, new_u], ignore_index=True)
                             save_all()
                             st.toast(f"Utilizatorul {n_user} a fost adăugat cu succes!", icon="✅")
@@ -1636,7 +1664,7 @@ if is_admin:
                     st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Parolă"] = e_pass
                     st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Rol"] = e_rol
                     st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Telefon"] = formatted_edited_tel
-                    st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "APIKey"] = e_apikey
+                    st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "APIKey"] = sanitize_apikey_input(e_apikey)
                     save_all()
                     st.toast("Utilizatorul a fost actualizat cu succes!", icon="✅")
                     trigger_rerun()
