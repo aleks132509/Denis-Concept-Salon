@@ -884,6 +884,10 @@ with tabs[0]:
 
                     st.session_state.prog_df = pd.concat([st.session_state.prog_df, new_row], ignore_index=True)
                     save_all()
+                    # Resetăm starea bifărilor în session_state pentru a nu rămâne selectate
+                    for key in list(st.session_state.keys()):
+                        if "_srv_bifat_" in key:
+                            st.session_state[key] = False
                     st.toast(f"Programare salvată cu succes pentru {client_nume}! Total: {total_pret} RON.", icon="✅")
                     trigger_rerun()
 
@@ -1020,6 +1024,10 @@ with tabs[0]:
 
                     st.session_state.prog_df = pd.concat([st.session_state.prog_df, new_row], ignore_index=True)
                     save_all()
+                    # Resetăm starea bifărilor în session_state pentru client
+                    for key in list(st.session_state.keys()):
+                        if "_srv_bifat_" in key:
+                            st.session_state[key] = False
                     st.toast(f"Programare salvată cu succes! Total de plată: {total_pret} RON.", icon="✅")
                     trigger_rerun()
 
@@ -1221,7 +1229,6 @@ with tabs[1]:
                             st_phone = stylist_user_row.iloc[0]["Telefon"]
                             st_apikey = stylist_user_row.iloc[0]["APIKey"]
                             
-                            # Mesaj WhatsApp curat, clar și structurat vizual pentru ANULARE
                             wa_cancel_msg = (
                                 f"❌ *ANULARE PROGRAMARE (CLIENT)*\n\n"
                                 f"👤 *Client:* {current_user}\n"
@@ -1244,13 +1251,24 @@ with tabs[1]:
             with tab_m2:
                 st.markdown("""
                 <div class="info-alert">
-                    ⚠️ <b>ATENȚIE:</b> Alege data dorită, iar sistemul îți va afișa în dropdown <b>doar sloturile orare disponibile</b>. Modificarea necesită aprobare!
+                    ⚠️ <b>ATENȚIE:</b> Alege data dorită, iar sistemul îți va afișa în dropdown <b>doar sloturile orare disponibile</b> corect calculate. Modificarea necesită aprobare!
                 </div>
                 """, unsafe_allow_html=True)
                 
                 new_date = st.date_input("Noua Dată Dorită", value=datetime.strptime(selected_row["Dată"], "%Y-%m-%d").date(), min_value=date.today(), key=f"client_nd_{nr_selected}")
                 stilist_alocat = selected_row["Stilist"]
-                durata_act = int(float(selected_row["Durată"])) if pd.notna(selected_row["Durată"]) else 30
+                
+                new_serv = st.text_input("Serviciu / Mențiuni", value=selected_row["Serviciu"], key=f"client_ns_{nr_selected}")
+                
+                # Actualizăm corect durata în funcție de noul serviciu introdus/modificat din catalog
+                serv_match_mod = st.session_state.serv_df[
+                    (st.session_state.serv_df["Stilist"] == stilist_alocat) & 
+                    (st.session_state.serv_df["Serviciu"].str.lower() == new_serv.strip().lower())
+                ]
+                if not serv_match_mod.empty:
+                    durata_act = int(float(serv_match_mod.iloc[0]["Durată (min)"]))
+                else:
+                    durata_act = int(float(selected_row["Durată"])) if pd.notna(selected_row["Durată"]) else 30
                 
                 all_possible_slots = [
                     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -1277,8 +1295,6 @@ with tabs[1]:
                     new_ora = ""
                 else:
                     new_ora = st.selectbox("Alege Slotul Orar Disponibil", available_slots_mod, key=f"client_no_{nr_selected}")
-
-                new_serv = st.text_input("Serviciu / Mențiuni", value=selected_row["Serviciu"], key=f"client_ns_{nr_selected}")
                 
                 if st.button("✏️ Trimite Solicitarea de Modificare", use_container_width=True, key=f"btn_send_mod_{nr_selected}"):
                     if not new_ora:
@@ -1402,30 +1418,30 @@ if is_admin_or_stylist:
                         if st.form_submit_button("💾 Salvează Modificările"):
                             has_ov, _ = check_overlap(q_stilist, q_data.strftime("%Y-%m-%d"), q_ora, q_durata, exclude_nr=sel_mg_nr)
                             if has_ov:
-                                st.toast("Atenție: Programarea modificată se suprapune cu alta existentă!", icon="⚠️")
-                            
-                            try:
-                                t_s = datetime.strptime(q_ora, "%H:%M")
-                                t_e = t_s + timedelta(minutes=int(q_durata))
-                                q_ora_sf = t_e.strftime("%H:%M")
-                            except:
-                                q_ora_sf = curr_mgmt_row["Ora Sfârșit"]
+                                st.toast("Erore: Slotul orar selectat este ocupat de o altă programare! Modificarea nu a fost salvată.", icon="❌")
+                            else:
+                                try:
+                                    t_s = datetime.strptime(q_ora, "%H:%M")
+                                    t_e = t_s + timedelta(minutes=int(q_durata))
+                                    q_ora_sf = t_e.strftime("%H:%M")
+                                except:
+                                    q_ora_sf = curr_mgmt_row["Ora Sfârșit"]
 
-                            formatted_q_tel = format_phone_input(q_tel)
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Dată"] = q_data.strftime("%Y-%m-%d")
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Ora Start"] = q_ora
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Ora Sfârșit"] = q_ora_sf
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Client"] = q_client
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Telefon"] = formatted_q_tel
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Serviciu"] = q_serviciu
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Stilist"] = q_stilist
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Preț"] = q_pret
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Durată"] = q_durata
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Status"] = q_status
-                            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Observații"] = q_obs
-                            save_all()
-                            st.toast("Programarea a fost actualizată cu succes!", icon="✅")
-                            trigger_rerun()
+                                formatted_q_tel = format_phone_input(q_tel)
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Dată"] = q_data.strftime("%Y-%m-%d")
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Ora Start"] = q_ora
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Ora Sfârșit"] = q_ora_sf
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Client"] = q_client
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Telefon"] = formatted_q_tel
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Serviciu"] = q_serviciu
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Stilist"] = q_stilist
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Preț"] = q_pret
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Durată"] = q_durata
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Status"] = q_status
+                                st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Observații"] = q_obs
+                                save_all()
+                                st.toast("Programarea a fost actualizată cu succes!", icon="✅")
+                                trigger_rerun()
 
                 col_btn_m1, col_btn_m2, col_btn_m3 = st.columns(3)
                 with col_btn_m1:
