@@ -938,9 +938,10 @@ with tabs[1]:
                 key="admin_fil_stilist_pills"
             )
 
+        # Modificare: Adăugat "Anulat" în opțiunile filtrului de status
         fil_status = st.pills(
             "Alege Status Programare", 
-            options=["Confirmat", "În Așteptare"], 
+            options=["Confirmat", "În Așteptare", "Anulat"], 
             default=["Confirmat", "În Așteptare"], 
             selection_mode="multi",
             key="admin_fil_status_pills"
@@ -948,8 +949,6 @@ with tabs[1]:
 
         today = date.today()
         if not df_p.empty:
-            df_p = df_p[(df_p["Status"] == "Confirmat") | (df_p["Status Modificare"] == "În Așteptare") | (df_p["Status"] == "În Așteptare")]
-            
             df_p["Dată_dt"] = pd.to_datetime(df_p["Dată"], errors="coerce")
             
             if view_mode == "Azi":
@@ -978,7 +977,10 @@ with tabs[1]:
                 df_p = df_p.iloc[0:0]
                 
             if fil_status:
-                df_p = df_p[df_p["Status"].isin(fil_status)]
+                df_p = df_p[
+                    df_p["Status"].isin(fil_status) | 
+                    ((df_p["Status Modificare"] == "În Așteptare") & ("În Așteptare" in fil_status))
+                ]
             else:
                 df_p = df_p.iloc[0:0]
             
@@ -1047,8 +1049,8 @@ with tabs[1]:
             st.toast(st.session_state["cancel_success_alert"], icon="✅")
             del st.session_state["cancel_success_alert"]
 
-        st.markdown("##### 📅 Programări curente")
-        current_active_progs = client_progs[(client_progs["Dată"] >= str(date.today())) & (client_progs["Status"] == "Confirmat")]
+        st.markdown("##### 📅 Programări curente & anulate")
+        current_active_progs = client_progs[(client_progs["Dată"] >= str(date.today())) & (client_progs["Status"].isin(["Confirmat", "Anulat"]))]
         if not current_active_progs.empty:
             df_curr_display = current_active_progs[["Dată", "Ora Start", "Ora Sfârșit", "Serviciu", "Stilist", "Preț", "Durată", "Status", "Status Modificare"]].copy()
             df_curr_display["Status Modificare"] = df_curr_display["Status Modificare"].apply(lambda x: "" if str(x) in ["Niciuna", "nan", "NaN", ""] else x)
@@ -1105,16 +1107,17 @@ with tabs[1]:
                             st_phone = stylist_user_row.iloc[0]["Telefon"]
                             st_apikey = stylist_user_row.iloc[0]["APIKey"]
                             
+                            # Corectat mesajul WhatsApp pentru a conține detaliile reale ale programării în loc de "This is a test"
                             wa_cancel_msg = (
                                 f"ANULARE PROGRAMARE\n"
-                                f"Stilist: {stilist_alocat}\n"
                                 f"Client: {current_user}\n"
                                 f"Data & Ora: {format_ro_date(selected_row['Dată'])} | {selected_row['Ora Start']} - {selected_row['Ora Sfârșit']}\n"
-                                f"Serviciu: {selected_row['Serviciu']}"
+                                f"Serviciu: {selected_row['Serviciu']}\n"
+                                f"Stilist: {stilist_alocat}"
                             )
                             success_wa = send_free_automatic_whatsapp(st_phone, wa_cancel_msg, st_apikey)
                             if success_wa:
-                                st.session_state["cancel_success_alert"] = "Programarea a fost anulată și înștiințarea a fost trimisă stilistului pe WhatsApp!"
+                                st.session_state["cancel_success_alert"] = "Programarea a fost anulată și înștiințarea detaliată a fost trimisă stilistului pe WhatsApp!"
                             else:
                                 st.session_state["cancel_success_alert"] = "Programarea a fost anulată cu succes în sistem!"
                         else:
@@ -1304,7 +1307,23 @@ if is_admin_or_stylist:
                     if st.button("Marchează ca Anulat"):
                         st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Status"] = "Anulat"
                         save_all()
-                        st.toast("Programare anulată.", icon="⚠️")
+                        
+                        # Trimitere WhatsApp cu detalii și la anularea din panoul de gestiune
+                        stilist_alocat_mg = curr_mgmt_row["Stilist"]
+                        stylist_user_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == stilist_alocat_mg]
+                        if not stylist_user_row.empty:
+                            st_phone = stylist_user_row.iloc[0]["Telefon"]
+                            st_apikey = stylist_user_row.iloc[0]["APIKey"]
+                            wa_cancel_msg_admin = (
+                                f"ANULARE PROGRAMARE\n"
+                                f"Client: {curr_mgmt_row['Client']}\n"
+                                f"Data & Ora: {format_ro_date(curr_mgmt_row['Dată'])} | {curr_mgmt_row['Ora Start']} - {curr_mgmt_row['Ora Sfârșit']}\n"
+                                f"Serviciu: {curr_mgmt_row['Serviciu']}\n"
+                                f"Stilist: {stilist_alocat_mg}"
+                            )
+                            send_free_automatic_whatsapp(st_phone, wa_cancel_msg_admin, st_apikey)
+
+                        st.toast("Programare anulată și stilistul înștiințat!", icon="⚠️")
                         trigger_rerun()
                 with col_btn_m3:
                     if st.button("Șterge Definitiv", type="primary"):
