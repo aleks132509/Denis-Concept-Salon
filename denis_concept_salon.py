@@ -308,9 +308,32 @@ def remove_diacritics(text):
     return without_diacritics
 
 def send_free_automatic_whatsapp(phone, message, apikey=None):
-    target_apikey = str(apikey).strip() if apikey and pd.notna(apikey) and str(apikey).strip() != "" and str(apikey).strip() != "nan" else MASTER_WHATSAPP_APIKEY
-    target_phone = str(phone).strip() if phone and pd.notna(phone) and str(phone).strip() != "" else MASTER_WHATSAPP_PHONE
-    
+    """
+    Trimite un mesaj WhatsApp automat prin CallMeBot.
+
+    IMPORTANT despre CallMeBot: fiecare API Key este legat STRICT de numărul de
+    telefon care a trimis mesajul de activare ("I allow callmebot to send me
+    messages") către botul lor. Nu se poate folosi cheia unei persoane pentru
+    a trimite pe numărul altei persoane — cererea eșuează silențios sau
+    livrează un mesaj vechi/de test, nu textul cerut.
+
+    De aceea, dacă persoana (stilistul) nu are ÎNCĂ propria cheie API
+    configurată, NU trimitem nimic (ar eșua oricum) — funcția întoarce False
+    curat, iar în momentul în care cheia lui proprie este adăugată în
+    Admin > Setări & Utilizatori, trimiterea va funcționa automat, la fel ca
+    pentru Alex, fără nicio altă modificare de cod.
+    """
+    apikey_str = str(apikey).strip() if apikey is not None and pd.notna(apikey) else ""
+    if apikey_str in ("", "nan", "None"):
+        print(f"WhatsApp NETRIMIS către {phone}: nu are încă propriul API Key CallMeBot configurat.")
+        return False
+
+    target_apikey = apikey_str
+    target_phone = str(phone).strip() if phone and pd.notna(phone) and str(phone).strip() != "" else ""
+    if target_phone == "":
+        print("WhatsApp NETRIMIS: nu există un număr de telefon valid pentru acest utilizator.")
+        return False
+
     clean_phone = "".join(filter(str.isdigit, str(target_phone)))
     if clean_phone.startswith("0"):
         clean_phone = "4" + clean_phone
@@ -325,8 +348,13 @@ def send_free_automatic_whatsapp(phone, message, apikey=None):
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=8) as response:
-                if response.status == 200:
+                body_text = response.read().decode("utf-8", errors="ignore")
+                # CallMeBot răspunde deseori cu status 200 chiar și la eroare
+                # (cheie invalidă, telefon nepotrivit etc.) — verificăm și body-ul.
+                if response.status == 200 and "Message queued" in body_text:
                     return True
+                else:
+                    print(f"CallMeBot a răspuns fără confirmare de livrare pentru {clean_phone}: {body_text}")
         except Exception as e:
             print(f"Încercare {attempt} eșuată trimitere WhatsApp:", e)
         time.sleep(1)
@@ -1321,9 +1349,13 @@ if is_admin_or_stylist:
                                 f"Serviciu: {curr_mgmt_row['Serviciu']}\n"
                                 f"Stilist: {stilist_alocat_mg}"
                             )
-                            send_free_automatic_whatsapp(st_phone, wa_cancel_msg_admin, st_apikey)
-
-                        st.toast("Programare anulată și stilistul înștiințat!", icon="⚠️")
+                            success_wa_mg = send_free_automatic_whatsapp(st_phone, wa_cancel_msg_admin, st_apikey)
+                            if success_wa_mg:
+                                st.toast("Programare anulată și stilistul înștiințat pe WhatsApp!", icon="⚠️")
+                            else:
+                                st.toast("Programare anulată. Stilistul nu are încă API Key WhatsApp configurat, deci nu a fost înștiințat automat.", icon="⚠️")
+                        else:
+                            st.toast("Programare anulată!", icon="⚠️")
                         trigger_rerun()
                 with col_btn_m3:
                     if st.button("Șterge Definitiv", type="primary"):
