@@ -627,7 +627,15 @@ if st.sidebar.button("🚪 Deconectare", use_container_width=True):
 
 st.sidebar.markdown("---")
 
+def _nr_matches(row_nr, target_nr):
+    """Compară în siguranță 'Nr. Programare' (poate fi 5, 5.0 sau '5' din CSV/pandas)."""
+    try:
+        return float(row_nr) == float(target_nr)
+    except (TypeError, ValueError):
+        return str(row_nr) == str(target_nr)
+
 def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_nr=None):
+    """Verifică dacă STILISTUL are deja o altă programare care se suprapune."""
     try:
         t_start = datetime.strptime(ora_start_str, "%H:%M").time()
         start_dt = datetime.combine(datetime.strptime(data_str, "%Y-%m-%d"), t_start)
@@ -639,7 +647,7 @@ def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_nr=None)
     conflicts = []
     
     for idx, row in df.iterrows():
-        if exclude_nr is not None and str(row.get("Nr. Programare")) == str(exclude_nr):
+        if exclude_nr is not None and _nr_matches(row.get("Nr. Programare"), exclude_nr):
             continue
         if row["Stilist"] == stilist and row["Dată"] == data_str and row["Status"] != "Anulat":
             try:
@@ -648,6 +656,40 @@ def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_nr=None)
                 ex_s_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_start)
                 ex_e_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_end)
                 
+                if start_dt < ex_e_dt and end_dt > ex_s_dt:
+                    conflicts.append(row)
+            except:
+                pass
+    return len(conflicts) > 0, conflicts
+
+def check_client_overlap(client_name, data_str, ora_start_str, durata_min, exclude_nr=None):
+    """
+    Verifică dacă ACEST CLIENT are deja o altă programare care se suprapune în timp,
+    INDIFERENT de stilist (ex: nu poate fi la Adrian și la Andreea în același interval).
+    """
+    if not client_name:
+        return False, []
+    try:
+        t_start = datetime.strptime(ora_start_str, "%H:%M").time()
+        start_dt = datetime.combine(datetime.strptime(data_str, "%Y-%m-%d"), t_start)
+        end_dt = start_dt + timedelta(minutes=int(durata_min))
+    except:
+        return False, []
+
+    df = st.session_state.prog_df
+    conflicts = []
+
+    for idx, row in df.iterrows():
+        if exclude_nr is not None and _nr_matches(row.get("Nr. Programare"), exclude_nr):
+            continue
+        row_client = str(row.get("Client", "")).strip().lower()
+        if row_client == str(client_name).strip().lower() and row["Dată"] == data_str and row["Status"] != "Anulat":
+            try:
+                ex_start = datetime.strptime(row["Ora Start"], "%H:%M").time()
+                ex_end = datetime.strptime(row["Ora Sfârșit"], "%H:%M").time()
+                ex_s_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_start)
+                ex_e_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_end)
+
                 if start_dt < ex_e_dt and end_dt > ex_s_dt:
                     conflicts.append(row)
             except:
@@ -891,10 +933,11 @@ with tabs[0]:
             if total_durata > 0:
                 for slot in all_possible_slots:
                     has_ov, _ = check_overlap(p_stilist, data_str, slot, total_durata)
+                    has_client_ov, _ = check_client_overlap(client_nume, data_str, slot, total_durata)
                     try:
                         t_s = datetime.strptime(slot, "%H:%M")
                         t_e = t_s + timedelta(minutes=total_durata)
-                        if t_e.time() <= datetime.strptime("20:00", "%H:%M").time() and not has_ov:
+                        if t_e.time() <= datetime.strptime("20:00", "%H:%M").time() and not has_ov and not has_client_ov:
                             available_slots.append(slot)
                     except:
                         pass
@@ -1203,10 +1246,11 @@ with tabs[1]:
                 available_slots_mod = []
                 for slot in all_possible_slots:
                     has_ov, _ = check_overlap(stilist_alocat, date_str_n, slot, durata_act, exclude_nr=nr_selected)
+                    has_client_ov, _ = check_client_overlap(current_user, date_str_n, slot, durata_act, exclude_nr=nr_selected)
                     try:
                         t_s = datetime.strptime(slot, "%H:%M")
                         t_e = t_s + timedelta(minutes=durata_act)
-                        if t_e.time() <= datetime.strptime("20:00", "%H:%M").time() and not has_ov:
+                        if t_e.time() <= datetime.strptime("20:00", "%H:%M").time() and not has_ov and not has_client_ov:
                             available_slots_mod.append(slot)
                     except:
                         pass
@@ -1233,7 +1277,15 @@ with tabs[1]:
                         if not stylist_user_row.empty:
                             st_phone = stylist_user_row.iloc[0]["Telefon"]
                             st_apikey = stylist_user_row.iloc[0]["APIKey"]
-                            wa_mod_msg = f"SOLICITARE MODIFICARE\nClient: {current_user}\nData: {format_ro_date(date_str_n)}\nOra: {new_ora}"
+                            wa_mod_msg = (
+                                f"SOLICITARE MODIFICARE\n"
+                                f"Client: {current_user}\n"
+                                f"Data & Ora ACTUALĂ: {format_ro_date(selected_row['Dată'])} | {selected_row['Ora Start']} - {selected_row['Ora Sfârșit']}\n"
+                                f"Serviciu actual: {selected_row['Serviciu']}\n"
+                                f"➡️ Data & Ora NOUĂ SOLICITATĂ: {format_ro_date(date_str_n)} | {new_ora}\n"
+                                f"Serviciu nou: {new_serv}\n"
+                                f"Stilist: {stilist_alocat}"
+                            )
                             send_free_automatic_whatsapp(st_phone, wa_mod_msg, st_apikey)
 
                         st.session_state["client_mod_sent_success"] = True
