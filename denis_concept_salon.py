@@ -308,11 +308,6 @@ def remove_diacritics(text):
     return without_diacritics
 
 def sanitize_apikey_input(raw):
-    """
-    Dacă utilizatorul lipește din greșeală URL-ul întreg de test CallMeBot
-    (ex: "https://api.callmebot.com/whatsapp.php?phone=...&text=This+is+a+test&apikey=123456")
-    în loc de doar cheia numerică, extrage cheia reală din el.
-    """
     if raw is None or pd.isna(raw):
         return ""
     raw_str = str(raw).strip()
@@ -326,21 +321,6 @@ def sanitize_apikey_input(raw):
     return raw_str
 
 def send_free_automatic_whatsapp(phone, message, apikey=None):
-    """
-    Trimite un mesaj WhatsApp automat prin CallMeBot.
-
-    IMPORTANT despre CallMeBot: fiecare API Key este legat STRICT de numărul de
-    telefon care a trimis mesajul de activare ("I allow callmebot to send me
-    messages") către botul lor. Nu se poate folosi cheia unei persoane pentru
-    a trimite pe numărul altei persoane — cererea eșuează silențios sau
-    livrează un mesaj vechi/de test, nu textul cerut.
-
-    De aceea, dacă persoana (stilistul) nu are ÎNCĂ propria cheie API
-    configurată, NU trimitem nimic (ar eșua oricum) — funcția întoarce False
-    curat, iar în momentul în care cheia lui proprie este adăugată în
-    Admin > Setări & Utilizatori, trimiterea va funcționa automat, la fel ca
-    pentru Alex, fără nicio altă modificare de cod.
-    """
     apikey_str = sanitize_apikey_input(apikey)
     if apikey_str in ("", "nan", "None"):
         print(f"WhatsApp NETRIMIS către {phone}: nu are încă propriul API Key CallMeBot configurat.")
@@ -367,8 +347,6 @@ def send_free_automatic_whatsapp(phone, message, apikey=None):
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=8) as response:
                 body_text = response.read().decode("utf-8", errors="ignore")
-                # CallMeBot răspunde deseori cu status 200 chiar și la eroare
-                # (cheie invalidă, telefon nepotrivit etc.) — verificăm și body-ul.
                 if response.status == 200 and "Message queued" in body_text:
                     return True
                 else:
@@ -396,6 +374,110 @@ def format_ro_date(d_input):
         return f"{day_name}, {dt.day} {month_name} {dt.year}"
     except:
         return str(d_input)
+
+# ==========================================
+# FUNCȚII DE SUPRAPUNERE (Definite ÎNAINTE de pop-up-uri pentru a evita NameError)
+# ==========================================
+def _nr_matches(row_nr, target_nr):
+    try:
+        return float(row_nr) == float(target_nr)
+    except (TypeError, ValueError):
+        return str(row_nr) == str(target_nr)
+
+def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_nr=None):
+    try:
+        t_start = datetime.strptime(ora_start_str, "%H:%M").time()
+        start_dt = datetime.combine(datetime.strptime(data_str, "%Y-%m-%d"), t_start)
+        end_dt = start_dt + timedelta(minutes=int(durata_min))
+    except:
+        return False, []
+
+    df = st.session_state.prog_df
+    conflicts = []
+    
+    for idx, row in df.iterrows():
+        if exclude_nr is not None and _nr_matches(row.get("Nr. Programare"), exclude_nr):
+            continue
+        if row["Stilist"] == stilist and row["Dată"] == data_str and row["Status"] != "Anulat":
+            try:
+                ex_start = datetime.strptime(row["Ora Start"], "%H:%M").time()
+                ex_end = datetime.strptime(row["Ora Sfârșit"], "%H:%M").time()
+                ex_s_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_start)
+                ex_e_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_end)
+                
+                if start_dt < ex_e_dt and end_dt > ex_s_dt:
+                    conflicts.append(row)
+            except:
+                pass
+    return len(conflicts) > 0, conflicts
+
+def check_client_overlap(client_name, data_str, ora_start_str, durata_min, exclude_nr=None):
+    if not client_name:
+        return False, []
+    try:
+        t_start = datetime.strptime(ora_start_str, "%H:%M").time()
+        start_dt = datetime.combine(datetime.strptime(data_str, "%Y-%m-%d"), t_start)
+        end_dt = start_dt + timedelta(minutes=int(durata_min))
+    except:
+        return False, []
+
+    df = st.session_state.prog_df
+    conflicts = []
+
+    for idx, row in df.iterrows():
+        if exclude_nr is not None and _nr_matches(row.get("Nr. Programare"), exclude_nr):
+            continue
+        row_client = str(row.get("Client", "")).strip().lower()
+        if row_client == str(client_name).strip().lower() and row["Dată"] == data_str and row["Status"] != "Anulat":
+            try:
+                ex_start = datetime.strptime(row["Ora Start"], "%H:%M").time()
+                ex_end = datetime.strptime(row["Ora Sfârșit"], "%H:%M").time()
+                ex_s_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_start)
+                ex_e_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_end)
+
+                if start_dt < ex_e_dt and end_dt > ex_s_dt:
+                    conflicts.append(row)
+            except:
+                pass
+    return len(conflicts) > 0, conflicts
+
+# ==========================================
+# POP-UP DE APROBARE (Definit după funcțiile de suprapunere)
+# ==========================================
+@st.dialog("Gestionează Cererea de Modificare")
+def approval_popup(req_r):
+    st.markdown(f"**Client:** {req_r['Client']} | **Stilist Asignat:** {req_r['Stilist']}")
+    st.markdown(f"📅 Data actuală: `{format_ro_date(req_r['Dată'])} {req_r['Ora Start']}`")
+    st.markdown(f"➡️ **Solicitat nou:** `{format_ro_date(req_r['Noua Dată'])} {req_r['Noua Ora']}` | Serviciu nou: *{req_r['Noul Serviciu']}*")
+    
+    req_dur = int(float(req_r["Durată"])) if pd.notna(req_r["Durată"]) else 30
+    has_ov_req, _ = check_overlap(req_r["Stilist"], req_r["Noua Dată"], req_r["Noua Ora"], req_dur, exclude_nr=req_r["Nr. Programare"])
+    if has_ov_req:
+        st.markdown("""
+        <div class="overlap-alert">
+            ⚠️ <b>ATENȚIE SUPRAPUNERE:</b> Noul interval orar solicitat se suprapune cu o altă programare existentă pentru acest stilist!
+        </div>
+        """, unsafe_allow_html=True)
+
+    motiv_refuz = st.text_input("Motiv respingere (opțional)", key=f"popup_motiv_{req_r['Nr. Programare']}")
+    
+    col_pop1, col_pop2 = st.columns(2)
+    with col_pop1:
+        if st.button("✅ Aprobă Modificarea", use_container_width=True):
+            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Dată"] = req_r["Noua Dată"]
+            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Ora Start"] = req_r["Noua Ora"]
+            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Serviciu"] = req_r["Noul Serviciu"]
+            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Status Modificare"] = "Aprobat"
+            save_all()
+            st.toast("Modificarea a fost aprobată cu succes!", icon="✅")
+            st.rerun()
+    with col_pop2:
+        if st.button("❌ Respinge Solicitarea", use_container_width=True):
+            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Status Modificare"] = "Respins"
+            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Motiv Refuz"] = motiv_refuz if motiv_refuz else "Fără motiv specificat"
+            save_all()
+            st.toast("Modificarea a fost respinsă.", icon="⚠️")
+            st.rerun()
 
 def render_lux_table(df):
     if df.empty:
@@ -480,13 +562,14 @@ def render_marquee_banner():
         """, unsafe_allow_html=True)
 
 # ==========================================
-# SESIUNE, PERSISTENȚĂ & AUTENTIFICARE
+# SESIUNE, PERSISTENȚĂ & AUTENTIFICARE ("ȚINE-MĂ MINTE")
 # ==========================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user = None
     st.session_state.role = None
 
+# Verificare query params pentru persistență (Ține-mă minte)
 if not st.session_state.logged_in:
     saved_user = st.query_params.get("logged_user")
     saved_role = st.query_params.get("role")
@@ -509,7 +592,7 @@ if not st.session_state.logged_in:
         with st.form("login_form_streamlit"):
             u_input = st.text_input("👤 Utilizator / Nume", placeholder="ex: Alex, Ionuț, Adrian")
             p_input = st.text_input("🔑 Parolă", type="password")
-            remember_me = st.checkbox("Ține-mă minte (Rămâi conectat)")
+            remember_me = st.checkbox("Ține-mă minte (Rămâi conectat)", value=True)
             
             submit_login = st.form_submit_button("✨ Intră în Cont", use_container_width=True)
             if submit_login:
@@ -521,7 +604,7 @@ if not st.session_state.logged_in:
                     st.session_state.user = u_input
                     st.session_state.role = role_val
                     
-                    if remember_me or role_val in ["Administrator", "Stilist"]:
+                    if remember_me:
                         st.query_params["logged_user"] = u_input
                         st.query_params["role"] = role_val
                         
@@ -537,41 +620,6 @@ is_admin_or_stylist = is_admin or is_stylist
 current_user = st.session_state.user
 
 render_marquee_banner()
-
-@st.dialog("Gestionează Cererea de Modificare")
-def approval_popup(req_r):
-    st.markdown(f"**Client:** {req_r['Client']} | **Stilist Asignat:** {req_r['Stilist']}")
-    st.markdown(f"📅 Data actuală: `{format_ro_date(req_r['Dată'])} {req_r['Ora Start']}`")
-    st.markdown(f"➡️ **Solicitat nou:** `{format_ro_date(req_r['Noua Dată'])} {req_r['Noua Ora']}` | Serviciu nou: *{req_r['Noul Serviciu']}*")
-    
-    req_dur = int(float(req_r["Durată"])) if pd.notna(req_r["Durată"]) else 30
-    has_ov_req, _ = check_overlap(req_r["Stilist"], req_r["Noua Dată"], req_r["Noua Ora"], req_dur, exclude_nr=req_r["Nr. Programare"])
-    if has_ov_req:
-        st.markdown("""
-        <div class="overlap-alert">
-            ⚠️ <b>ATENȚIE SUPRAPUNERE:</b> Noul interval orar solicitat se suprapune cu o altă programare existentă pentru acest stilist!
-        </div>
-        """, unsafe_allow_html=True)
-
-    motiv_refuz = st.text_input("Motiv respingere (opțional)", key=f"popup_motiv_{req_r['Nr. Programare']}")
-    
-    col_pop1, col_pop2 = st.columns(2)
-    with col_pop1:
-        if st.button("✅ Aprobă Modificarea", use_container_width=True):
-            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Dată"] = req_r["Noua Dată"]
-            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Ora Start"] = req_r["Noua Ora"]
-            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Serviciu"] = req_r["Noul Serviciu"]
-            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Status Modificare"] = "Aprobat"
-            save_all()
-            st.toast("Modificarea a fost aprobată cu succes!", icon="✅")
-            st.rerun()
-    with col_pop2:
-        if st.button("❌ Respinge Solicitarea", use_container_width=True):
-            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Status Modificare"] = "Respins"
-            st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == int(req_r['Nr. Programare']), "Motiv Refuz"] = motiv_refuz if motiv_refuz else "Fără motiv specificat"
-            save_all()
-            st.toast("Modificarea a fost respinsă.", icon="⚠️")
-            st.rerun()
 
 if is_admin_or_stylist:
     df_prog_all = st.session_state.prog_df
@@ -626,75 +674,6 @@ if st.sidebar.button("🚪 Deconectare", use_container_width=True):
     trigger_rerun()
 
 st.sidebar.markdown("---")
-
-def _nr_matches(row_nr, target_nr):
-    """Compară în siguranță 'Nr. Programare' (poate fi 5, 5.0 sau '5' din CSV/pandas)."""
-    try:
-        return float(row_nr) == float(target_nr)
-    except (TypeError, ValueError):
-        return str(row_nr) == str(target_nr)
-
-def check_overlap(stilist, data_str, ora_start_str, durata_min, exclude_nr=None):
-    """Verifică dacă STILISTUL are deja o altă programare care se suprapune."""
-    try:
-        t_start = datetime.strptime(ora_start_str, "%H:%M").time()
-        start_dt = datetime.combine(datetime.strptime(data_str, "%Y-%m-%d"), t_start)
-        end_dt = start_dt + timedelta(minutes=int(durata_min))
-    except:
-        return False, []
-
-    df = st.session_state.prog_df
-    conflicts = []
-    
-    for idx, row in df.iterrows():
-        if exclude_nr is not None and _nr_matches(row.get("Nr. Programare"), exclude_nr):
-            continue
-        if row["Stilist"] == stilist and row["Dată"] == data_str and row["Status"] != "Anulat":
-            try:
-                ex_start = datetime.strptime(row["Ora Start"], "%H:%M").time()
-                ex_end = datetime.strptime(row["Ora Sfârșit"], "%H:%M").time()
-                ex_s_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_start)
-                ex_e_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_end)
-                
-                if start_dt < ex_e_dt and end_dt > ex_s_dt:
-                    conflicts.append(row)
-            except:
-                pass
-    return len(conflicts) > 0, conflicts
-
-def check_client_overlap(client_name, data_str, ora_start_str, durata_min, exclude_nr=None):
-    """
-    Verifică dacă ACEST CLIENT are deja o altă programare care se suprapune în timp,
-    INDIFERENT de stilist (ex: nu poate fi la Adrian și la Andreea în același interval).
-    """
-    if not client_name:
-        return False, []
-    try:
-        t_start = datetime.strptime(ora_start_str, "%H:%M").time()
-        start_dt = datetime.combine(datetime.strptime(data_str, "%Y-%m-%d"), t_start)
-        end_dt = start_dt + timedelta(minutes=int(durata_min))
-    except:
-        return False, []
-
-    df = st.session_state.prog_df
-    conflicts = []
-
-    for idx, row in df.iterrows():
-        if exclude_nr is not None and _nr_matches(row.get("Nr. Programare"), exclude_nr):
-            continue
-        row_client = str(row.get("Client", "")).strip().lower()
-        if row_client == str(client_name).strip().lower() and row["Dată"] == data_str and row["Status"] != "Anulat":
-            try:
-                ex_start = datetime.strptime(row["Ora Start"], "%H:%M").time()
-                ex_end = datetime.strptime(row["Ora Sfârșit"], "%H:%M").time()
-                ex_s_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_start)
-                ex_e_dt = datetime.combine(datetime.strptime(row["Dată"], "%Y-%m-%d"), ex_end)
-
-                if start_dt < ex_e_dt and end_dt > ex_s_dt:
-                    conflicts.append(row)
-            except:
-                pass
-    return len(conflicts) > 0, conflicts
 
 # ==========================================
 # DEFINIRE TAB-URI
@@ -1027,7 +1006,6 @@ with tabs[1]:
                 key="admin_fil_stilist_pills"
             )
 
-        # Modificare: Adăugat "Anulat" în opțiunile filtrului de status
         fil_status = st.pills(
             "Alege Status Programare", 
             options=["Confirmat", "În Așteptare", "Anulat"], 
@@ -1206,17 +1184,19 @@ with tabs[1]:
                             st_phone = stylist_user_row.iloc[0]["Telefon"]
                             st_apikey = stylist_user_row.iloc[0]["APIKey"]
                             
-                            # Corectat mesajul WhatsApp pentru a conține detaliile reale ale programării în loc de "This is a test"
+                            # Mesaj WhatsApp curat, clar și structurat pentru ANULARE
                             wa_cancel_msg = (
-                                f"ANULARE PROGRAMARE\n"
-                                f"Client: {current_user}\n"
-                                f"Data & Ora: {format_ro_date(selected_row['Dată'])} | {selected_row['Ora Start']} - {selected_row['Ora Sfârșit']}\n"
-                                f"Serviciu: {selected_row['Serviciu']}\n"
-                                f"Stilist: {stilist_alocat}"
+                                f"❌ *ANULARE PROGRAMARE*\n\n"
+                                f"👤 *Client:* {current_user}\n"
+                                f"📅 *Data:* {format_ro_date(selected_row['Dată'])}\n"
+                                f"⏰ *Ora:* {selected_row['Ora Start']} - {selected_row['Ora Sfârșit']}\n"
+                                f"✂️ *Serviciu:* {selected_row['Serviciu']}\n"
+                                f"💈 *Stilist:* {stilist_alocat}\n\n"
+                                f"*(Programarea a fost anulată direct de către client în aplicație)*"
                             )
                             success_wa = send_free_automatic_whatsapp(st_phone, wa_cancel_msg, st_apikey)
                             if success_wa:
-                                st.session_state["cancel_success_alert"] = "Programarea a fost anulată și înștiințarea detaliată a fost trimisă stilistului pe WhatsApp!"
+                                st.session_state["cancel_success_alert"] = "Programarea a fost anulată și înștiințarea a fost trimisă stilistului pe WhatsApp!"
                             else:
                                 st.session_state["cancel_success_alert"] = "Programarea a fost anulată cu succes în sistem!"
                         else:
@@ -1277,14 +1257,19 @@ with tabs[1]:
                         if not stylist_user_row.empty:
                             st_phone = stylist_user_row.iloc[0]["Telefon"]
                             st_apikey = stylist_user_row.iloc[0]["APIKey"]
+                            
+                            # Mesaj WhatsApp curat, clar și structurat pentru MODIFICARE
                             wa_mod_msg = (
-                                f"SOLICITARE MODIFICARE\n"
-                                f"Client: {current_user}\n"
-                                f"Data & Ora ACTUALĂ: {format_ro_date(selected_row['Dată'])} | {selected_row['Ora Start']} - {selected_row['Ora Sfârșit']}\n"
-                                f"Serviciu actual: {selected_row['Serviciu']}\n"
-                                f"➡️ Data & Ora NOUĂ SOLICITATĂ: {format_ro_date(date_str_n)} | {new_ora}\n"
-                                f"Serviciu nou: {new_serv}\n"
-                                f"Stilist: {stilist_alocat}"
+                                f"🔄 *SOLICITARE MODIFICARE PROGRAMARE*\n\n"
+                                f"👤 *Client:* {current_user}\n"
+                                f"💈 *Stilist:* {stilist_alocat}\n\n"
+                                f"📌 *Programare Actuală:*\n"
+                                f"   • Data & Ora: {format_ro_date(selected_row['Dată'])} | {selected_row['Ora Start']} - {selected_row['Ora Sfârșit']}\n"
+                                f"   • Serviciu: {selected_row['Serviciu']}\n\n"
+                                f"➡️ *Noua Solicitare:*\n"
+                                f"   • Dată & Ora: {format_ro_date(date_str_n)} | {new_ora}\n"
+                                f"   • Serviciu nou: {new_serv}\n\n"
+                                f"*(Te rugăm să aprobi sau să respingi solicitarea în aplicație)*"
                             )
                             send_free_automatic_whatsapp(st_phone, wa_mod_msg, st_apikey)
 
@@ -1416,24 +1401,24 @@ if is_admin_or_stylist:
                         st.session_state.prog_df.loc[st.session_state.prog_df["Nr. Programare"] == sel_mg_nr, "Status"] = "Anulat"
                         save_all()
                         
-                        # Trimitere WhatsApp cu detalii și la anularea din panoul de gestiune
                         stilist_alocat_mg = curr_mgmt_row["Stilist"]
                         stylist_user_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == stilist_alocat_mg]
                         if not stylist_user_row.empty:
                             st_phone = stylist_user_row.iloc[0]["Telefon"]
                             st_apikey = stylist_user_row.iloc[0]["APIKey"]
                             wa_cancel_msg_admin = (
-                                f"ANULARE PROGRAMARE\n"
-                                f"Client: {curr_mgmt_row['Client']}\n"
-                                f"Data & Ora: {format_ro_date(curr_mgmt_row['Dată'])} | {curr_mgmt_row['Ora Start']} - {curr_mgmt_row['Ora Sfârșit']}\n"
-                                f"Serviciu: {curr_mgmt_row['Serviciu']}\n"
-                                f"Stilist: {stilist_alocat_mg}"
+                                f"❌ *ANULARE PROGRAMARE (ADMIN)*\n\n"
+                                f"👤 *Client:* {curr_mgmt_row['Client']}\n"
+                                f"📅 *Data:* {format_ro_date(curr_mgmt_row['Dată'])}\n"
+                                f"⏰ *Ora:* {curr_mgmt_row['Ora Start']} - {curr_mgmt_row['Ora Sfârșit']}\n"
+                                f"✂️ *Serviciu:* {curr_mgmt_row['Serviciu']}\n"
+                                f"💈 *Stilist:* {stilist_alocat_mg}"
                             )
                             success_wa_mg = send_free_automatic_whatsapp(st_phone, wa_cancel_msg_admin, st_apikey)
                             if success_wa_mg:
                                 st.toast("Programare anulată și stilistul înștiințat pe WhatsApp!", icon="⚠️")
                             else:
-                                st.toast("Programare anulată. Stilistul nu are încă API Key WhatsApp configurat, deci nu a fost înștiințat automat.", icon="⚠️")
+                                st.toast("Programare anulată. Stilistul nu are încă API Key WhatsApp configurat.", icon="⚠️")
                         else:
                             st.toast("Programare anulată!", icon="⚠️")
                         trigger_rerun()
@@ -1674,109 +1659,3 @@ if is_admin:
     with tabs[6]:
         st.markdown("### ⚙️ Panou Setări & Gestiune Utilizatori / Chei API WhatsApp")
         st.markdown(render_lux_table(st.session_state.users_df[["Utilizator", "Rol", "Telefon", "APIKey"]]), unsafe_allow_html=True)
-
-        users_list = st.session_state.users_df["Utilizator"].tolist()
-        sel_user_mgmt = st.selectbox("Selectează Utilizator pentru Setarea cheii API WhatsApp sau Adaugă", ["-- Adaugă Utilizator Nou --"] + users_list)
-
-        if sel_user_mgmt == "-- Adaugă Utilizator Nou --":
-            with st.form("add_new_user_form"):
-                n_user = st.text_input("Nume Utilizator Nou")
-                n_pass = st.text_input("Parolă", type="password")
-                n_rol = st.selectbox("Rol", ["Administrator", "Stilist", "Client"])
-                n_tel = st.text_input("Telefon contact", value="+40 ", placeholder="+40 7xxxxxxxx sau +357...")
-                n_apikey = st.text_input("API Key WhatsApp (CallMeBot)", placeholder="opțional pentru stilisti")
-                
-                if st.form_submit_button("Adaugă Utilizator"):
-                    if n_user and n_pass:
-                        if n_user in st.session_state.users_df["Utilizator"].values:
-                            st.toast("Utilizatorul există deja!", icon="❌")
-                        else:
-                            formatted_new_tel = format_phone_input(n_tel)
-                            new_u = pd.DataFrame([{"Utilizator": n_user, "Parolă": n_pass, "Rol": n_rol, "Telefon": formatted_new_tel, "APIKey": sanitize_apikey_input(n_apikey)}])
-                            st.session_state.users_df = pd.concat([st.session_state.users_df, new_u], ignore_index=True)
-                            save_all()
-                            st.toast(f"Utilizatorul {n_user} a fost adăugat cu succes!", icon="✅")
-                            trigger_rerun()
-        else:
-            u_row = st.session_state.users_df[st.session_state.users_df["Utilizator"] == sel_user_mgmt].iloc[0]
-            with st.form("edit_existing_user_form"):
-                e_pass = st.text_input("Parolă", value=u_row["Parolă"], type="password")
-                e_rol = st.selectbox("Rol", ["Administrator", "Stilist", "Client"], index=["Administrator", "Stilist", "Client"].index(u_row["Rol"]) if u_row["Rol"] in ["Administrator", "Stilist", "Client"] else 2)
-                e_tel = st.text_input("Telefon contact", value=format_phone_input(u_row["Telefon"]))
-                e_apikey = st.text_input("API Key WhatsApp (CallMeBot)", value=str(u_row["APIKey"]) if pd.notna(u_row["APIKey"]) else "")
-                
-                col_u_btn1, col_u_btn2 = st.columns(2)
-                with col_u_btn1:
-                    save_mod = st.form_submit_button("Salvează Modificările")
-                with col_u_btn2:
-                    del_mod = st.form_submit_button("Șterge Utilizatorul")
-                
-                if save_mod:
-                    formatted_edited_tel = format_phone_input(e_tel)
-                    st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Parolă"] = e_pass
-                    st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Rol"] = e_rol
-                    st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "Telefon"] = formatted_edited_tel
-                    st.session_state.users_df.loc[st.session_state.users_df["Utilizator"] == sel_user_mgmt, "APIKey"] = sanitize_apikey_input(e_apikey)
-                    save_all()
-                    st.toast("Utilizatorul a fost actualizat cu succes!", icon="✅")
-                    trigger_rerun()
-                if del_mod:
-                    if sel_user_mgmt in ["Alex", "Denis", "Adrian", "Andreea"]:
-                        st.toast("Nu poți șterge membrii principali ai echipei!", icon="❌")
-                    else:
-                        st.session_state.users_df = st.session_state.users_df[st.session_state.users_df["Utilizator"] != sel_user_mgmt]
-                        save_all()
-                        st.toast(f"Utilizatorul {sel_user_mgmt} a fost șters!", icon="🗑️")
-                        trigger_rerun()
-
-# ==========================================
-# VIZIUNE CLIENT: TAB 3 (Recenzii)
-# ==========================================
-if not is_admin_or_stylist:
-    with tabs[2]:
-        st.markdown("### ⭐ Recenzii Salon & Istoricul Meu")
-        
-        st.markdown("#### 💬 Ce spun clienții noștri")
-        aprobate = st.session_state.rev_df[st.session_state.rev_df["Status"] == "Aprobat"] if not st.session_state.rev_df.empty else pd.DataFrame()
-        
-        if not aprobate.empty:
-            for idx, row in aprobate.iterrows():
-                with st.container(border=True):
-                    st.markdown(f"**👤 {row['Client']}** | Stilist: *{row['Stilist']}* | Rating: {'⭐' * int(float(row['Rating']) if pd.notna(row['Rating']) else 5)}")
-                    st.markdown(f"> *{row['Comentariu']}*")
-        else:
-            st.info("Nu există recenzii aprobate momentan.")
-
-        st.markdown("---")
-        st.markdown("#### 📜 Recenziile Tale Trimise")
-        my_reviews = st.session_state.rev_df[st.session_state.rev_df["Client"] == current_user] if not st.session_state.rev_df.empty else pd.DataFrame()
-        
-        if not my_reviews.empty:
-            for _, rev_row in my_reviews.iterrows():
-                with st.container(border=True):
-                    st.markdown(f"**Stilist:** {rev_row['Stilist']} | **Rating:** {'⭐' * int(float(rev_row['Rating']) if pd.notna(rev_row['Rating']) else 5)}")
-                    st.markdown(f"Comentariu: *{rev_row['Comentariu']}*")
-        else:
-            st.info("Nu ai adăugat nicio recenzie până acum.")
-
-        st.markdown("---")
-        st.markdown("#### ✍️ Adaugă o Recenzie Nouă")
-        with st.form("apply_review_form"):
-            r_stilist = st.selectbox("Stilistul vizitat", stilisti_disponibili, index=default_stylist_idx)
-            r_rating = st.slider("Rating (Stele)", 1, 5, 5)
-            r_comentariu = st.text_area("Scrie experiența ta...")
-            if st.form_submit_button("Trimite Recenzia"):
-                if r_comentariu:
-                    new_rev_id = int(st.session_state.rev_df["ID"].max() + 1) if not st.session_state.rev_df.empty and "ID" in st.session_state.rev_df.columns and pd.notna(st.session_state.rev_df["ID"].max()) else 1
-                    new_r = pd.DataFrame([{
-                        "ID": new_rev_id,
-                        "Client": current_user,
-                        "Stilist": r_stilist,
-                        "Rating": r_rating,
-                        "Comentariu": r_comentariu,
-                        "Status": "În așteptare"
-                    }])
-                    st.session_state.rev_df = pd.concat([st.session_state.rev_df, new_r], ignore_index=True)
-                    save_all()
-                    st.toast("Recenzia a fost trimisă cu succes spre moderare!", icon="✅")
-                    trigger_rerun()
