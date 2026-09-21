@@ -294,10 +294,6 @@ def load_data():
 if "prog_df" not in st.session_state:
     load_data()
 
-# Inițializăm contorul pentru resetarea sigură a checkbox-urilor de servicii
-if "form_counter" not in st.session_state:
-    st.session_state.form_counter = 0
-
 def save_all():
     st.session_state.prog_df.to_csv(PROG_FILE, index=False)
     st.session_state.serv_df.to_csv(SERV_FILE, index=False)
@@ -802,7 +798,7 @@ with tabs[0]:
                 s_name = s_row["Serviciu"]
                 s_pret = int(float(s_row["Preț"]) if pd.notna(s_row["Preț"]) else 50)
                 s_dur = int(float(s_row["Durată (min)"]) if pd.notna(s_row["Durată (min)"]) else 30)
-                if st.checkbox(f"{s_name} - {s_pret} RON ({s_dur} min)", key=f"admin_srv_bifat_{p_stilist}_{idx}_{st.session_state.form_counter}"):
+                if st.checkbox(f"{s_name} - {s_pret} RON ({s_dur} min)", key=f"admin_srv_bifat_{p_stilist}_{idx}"):
                     selected_services.append(s_name)
                     total_pret += s_pret
                     total_durata += s_dur
@@ -888,8 +884,10 @@ with tabs[0]:
 
                     st.session_state.prog_df = pd.concat([st.session_state.prog_df, new_row], ignore_index=True)
                     save_all()
-                    # Incrementăm form_counter pentru a reseta checkbox-urile în mod sigur
-                    st.session_state.form_counter += 1
+                    # Resetăm starea bifărilor în session_state pentru a nu rămâne selectate
+                    for key in list(st.session_state.keys()):
+                        if "_srv_bifat_" in key:
+                            st.session_state[key] = False
                     st.toast(f"Programare salvată cu succes pentru {client_nume}! Total: {total_pret} RON.", icon="✅")
                     trigger_rerun()
 
@@ -933,7 +931,7 @@ with tabs[0]:
                 s_name = s_row["Serviciu"]
                 s_pret = int(float(s_row["Preț"]) if pd.notna(s_row["Preț"]) else 50)
                 s_dur = int(float(s_row["Durată (min)"]) if pd.notna(s_row["Durată (min)"]) else 30)
-                if st.checkbox(f"{s_name} - {s_pret} RON ({s_dur} min)", key=f"client_srv_bifat_{p_stilist}_{idx}_{st.session_state.form_counter}"):
+                if st.checkbox(f"{s_name} - {s_pret} RON ({s_dur} min)", key=f"client_srv_bifat_{p_stilist}_{idx}"):
                     selected_services.append(s_name)
                     total_pret += s_pret
                     total_durata += s_dur
@@ -1026,8 +1024,10 @@ with tabs[0]:
 
                     st.session_state.prog_df = pd.concat([st.session_state.prog_df, new_row], ignore_index=True)
                     save_all()
-                    # Incrementăm form_counter pentru a reseta checkbox-urile în mod sigur
-                    st.session_state.form_counter += 1
+                    # Resetăm starea bifărilor în session_state pentru client
+                    for key in list(st.session_state.keys()):
+                        if "_srv_bifat_" in key:
+                            st.session_state[key] = False
                     st.toast(f"Programare salvată cu succes! Total de plată: {total_pret} RON.", icon="✅")
                     trigger_rerun()
 
@@ -1260,6 +1260,7 @@ with tabs[1]:
                 
                 new_serv = st.text_input("Serviciu / Mențiuni", value=selected_row["Serviciu"], key=f"client_ns_{nr_selected}")
                 
+                # Actualizăm corect durata în funcție de noul serviciu introdus/modificat din catalog
                 serv_match_mod = st.session_state.serv_df[
                     (st.session_state.serv_df["Stilist"] == stilist_alocat) & 
                     (st.session_state.serv_df["Serviciu"].str.lower() == new_serv.strip().lower())
